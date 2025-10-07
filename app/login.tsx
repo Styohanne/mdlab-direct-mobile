@@ -10,6 +10,15 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const handleSignIn = () => {
+    // Simple authentication check
+    if (email === 'admin' && password === 'admin') {
+      router.replace('/(drawer)/dashboard');
+    } else {
+      alert('Invalid credentials. Please use:\nEmail: admin\nPassword: admin');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Navbar */}
@@ -52,7 +61,11 @@ export default function LoginScreen() {
           />
 
           {/* Sign In Button */}
-          <TouchableOpacity style={styles.signInButton} activeOpacity={0.8}>
+          <TouchableOpacity 
+            style={styles.signInButton} 
+            activeOpacity={0.8}
+            onPress={handleSignIn}
+          >
             <ThemedText style={styles.signInButtonText}>Sign In</ThemedText>
           </TouchableOpacity>
 
