@@ -14,10 +14,10 @@ export default function LoginScreen() {
 
   const handleSignIn = () => {
     // Simple authentication check
-    if (email === 'admin' && password === 'admin') {
+    if (email === 'patient' && password === 'patient') {
       router.replace('/(drawer)/dashboard');
     } else {
-      alert('Invalid credentials. Please use:\nEmail: admin\nPassword: admin');
+      alert('Invalid credentials. Please use:\nEmail: patient\nPassword: patient');
     }
   };
 
