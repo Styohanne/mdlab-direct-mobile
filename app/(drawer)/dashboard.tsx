@@ -10,9 +10,12 @@ import {
   addNotificationReceivedListener,
   addNotificationResponseReceivedListener
 } from '@/utils/notifications';
+import { DrawerActions } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
@@ -54,6 +57,12 @@ export default function DashboardScreen() {
       {/* Navbar */}
       <View style={styles.navbar}>
         <View style={styles.navbarLeft}>
+          <TouchableOpacity 
+            style={styles.menuButton}
+            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+          >
+            <Ionicons name="menu" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
           <Image
             source={require('@/assets/images/mdlab-navbar.png')}
             style={styles.navbarLogo}
@@ -196,6 +205,10 @@ const styles = StyleSheet.create({
   navbarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  menuButton: {
+    padding: 8,
+    marginRight: 8,
   },
   navbarLogo: {
     width: 40,
