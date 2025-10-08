@@ -9,6 +9,7 @@ export default function DrawerLayout() {
         screenOptions={{
           drawerActiveTintColor: '#21AEA8',
           drawerInactiveTintColor: '#666',
+          headerShown: false,
           headerStyle: {
             backgroundColor: '#21AEA8',
           },
