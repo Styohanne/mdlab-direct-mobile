@@ -1,8 +1,70 @@
-import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { router } from 'expo-router';
 
 export default function ResultsScreen() {
+  const [selectedTestType, setSelectedTestType] = useState('all');
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState('3months');
+  const [selectedSort, setSelectedSort] = useState('newest');
+  const [showTestTypePicker, setShowTestTypePicker] = useState(false);
+  const [showTimePeriodPicker, setShowTimePeriodPicker] = useState(false);
+  const [showSortPicker, setShowSortPicker] = useState(false);
+
+  const testTypes = [
+    { label: 'All Results', value: 'all' },
+    { label: 'Blood Tests', value: 'blood' },
+    { label: 'Urine Tests', value: 'urine' },
+    { label: 'X-Ray', value: 'xray' },
+    { label: 'Other', value: 'other' },
+  ];
+
+  const timePeriods = [
+    { label: 'Last 3 Months', value: '3months' },
+    { label: 'Last 6 Months', value: '6months' },
+    { label: 'Last Year', value: '1year' },
+    { label: 'All Time', value: 'all' },
+  ];
+
+  const sortOptions = [
+    { label: 'Date (Newest First)', value: 'newest' },
+    { label: 'Date (Oldest First)', value: 'oldest' },
+    { label: 'Test Name', value: 'name' },
+  ];
+
+  // Mock data - empty array means no results
+  const testResults: any[] = [];
+
+  const handleBookTest = () => {
+    Alert.alert(
+      'Book a Test',
+      'You will be redirected to the Appointments page to book a new test.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Go to Appointments',
+          onPress: () => router.push('/(drawer)/appointments'),
+        },
+      ]
+    );
+  };
+
+  const getTestTypeLabel = () => {
+    return testTypes.find(t => t.value === selectedTestType)?.label || 'All Results';
+  };
+
+  const getTimePeriodLabel = () => {
+    return timePeriods.find(t => t.value === selectedTimePeriod)?.label || 'Last 3 Months';
+  };
+
+  const getSortLabel = () => {
+    return sortOptions.find(s => s.value === selectedSort)?.label || 'Date (Newest First)';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -11,63 +73,148 @@ export default function ResultsScreen() {
           <ThemedText style={styles.headerSubtitle}>View your latest test results</ThemedText>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.resultCard}>
-            <View style={styles.resultHeader}>
-              <View style={styles.resultIcon}>
-                <Ionicons name="flask" size={24} color="#FFFFFF" />
-              </View>
-              <View style={styles.resultInfo}>
-                <ThemedText style={styles.resultTitle}>Complete Blood Count (CBC)</ThemedText>
-                <ThemedText style={styles.resultDate}>September 2, 2025</ThemedText>
-                <View style={styles.statusBadge}>
-                  <ThemedText style={styles.statusText}>Normal</ThemedText>
-                </View>
-              </View>
+        <View style={styles.mainContent}>
+          <View style={styles.titleRow}>
+            <View>
+              <ThemedText style={styles.pageTitle}>Test Results</ThemedText>
+              <ThemedText style={styles.pageSubtitle}>View and download your laboratory test results</ThemedText>
             </View>
-            <TouchableOpacity style={styles.viewButton}>
-              <ThemedText style={styles.viewButtonText}>View Full Report</ThemedText>
-              <Ionicons name="chevron-forward" size={18} color="#21AEA8" />
-            </TouchableOpacity>
           </View>
 
-          <View style={styles.resultCard}>
-            <View style={styles.resultHeader}>
-              <View style={styles.resultIcon}>
-                <Ionicons name="medical" size={24} color="#FFFFFF" />
-              </View>
-              <View style={styles.resultInfo}>
-                <ThemedText style={styles.resultTitle}>Lipid Panel</ThemedText>
-                <ThemedText style={styles.resultDate}>August 15, 2025</ThemedText>
-                <View style={styles.statusBadge}>
-                  <ThemedText style={styles.statusText}>Normal</ThemedText>
+          {/* Filters */}
+          <View style={styles.filtersContainer}>
+            <View style={styles.filterGroup}>
+              <ThemedText style={styles.filterLabel}>TEST TYPE:</ThemedText>
+              <TouchableOpacity 
+                style={styles.filterDropdown}
+                onPress={() => setShowTestTypePicker(!showTestTypePicker)}
+              >
+                <ThemedText style={styles.filterText}>{getTestTypeLabel()}</ThemedText>
+                <Ionicons name={showTestTypePicker ? "chevron-up" : "chevron-down"} size={16} color="#21AEA8" />
+              </TouchableOpacity>
+              {showTestTypePicker && (
+                <View style={styles.dropdownList}>
+                  {testTypes.map((type) => (
+                    <TouchableOpacity
+                      key={type.value}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setSelectedTestType(type.value);
+                        setShowTestTypePicker(false);
+                      }}
+                    >
+                      <ThemedText style={styles.dropdownItemText}>{type.label}</ThemedText>
+                      {selectedTestType === type.value && (
+                        <Ionicons name="checkmark" size={18} color="#21AEA8" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              </View>
+              )}
             </View>
-            <TouchableOpacity style={styles.viewButton}>
-              <ThemedText style={styles.viewButtonText}>View Full Report</ThemedText>
-              <Ionicons name="chevron-forward" size={18} color="#21AEA8" />
-            </TouchableOpacity>
+
+            <View style={styles.filterGroup}>
+              <ThemedText style={styles.filterLabel}>TIME PERIOD:</ThemedText>
+              <TouchableOpacity 
+                style={styles.filterDropdown}
+                onPress={() => setShowTimePeriodPicker(!showTimePeriodPicker)}
+              >
+                <ThemedText style={styles.filterText}>{getTimePeriodLabel()}</ThemedText>
+                <Ionicons name={showTimePeriodPicker ? "chevron-up" : "chevron-down"} size={16} color="#21AEA8" />
+              </TouchableOpacity>
+              {showTimePeriodPicker && (
+                <View style={styles.dropdownList}>
+                  {timePeriods.map((period) => (
+                    <TouchableOpacity
+                      key={period.value}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setSelectedTimePeriod(period.value);
+                        setShowTimePeriodPicker(false);
+                      }}
+                    >
+                      <ThemedText style={styles.dropdownItemText}>{period.label}</ThemedText>
+                      {selectedTimePeriod === period.value && (
+                        <Ionicons name="checkmark" size={18} color="#21AEA8" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View style={styles.filterGroup}>
+              <ThemedText style={styles.filterLabel}>SORT BY:</ThemedText>
+              <TouchableOpacity 
+                style={styles.filterDropdown}
+                onPress={() => setShowSortPicker(!showSortPicker)}
+              >
+                <ThemedText style={styles.filterText}>{getSortLabel()}</ThemedText>
+                <Ionicons name={showSortPicker ? "chevron-up" : "chevron-down"} size={16} color="#21AEA8" />
+              </TouchableOpacity>
+              {showSortPicker && (
+                <View style={styles.dropdownList}>
+                  {sortOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setSelectedSort(option.value);
+                        setShowSortPicker(false);
+                      }}
+                    >
+                      <ThemedText style={styles.dropdownItemText}>{option.label}</ThemedText>
+                      {selectedSort === option.value && (
+                        <Ionicons name="checkmark" size={18} color="#21AEA8" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
 
-          <View style={styles.resultCard}>
-            <View style={styles.resultHeader}>
-              <View style={styles.resultIcon}>
-                <Ionicons name="water" size={24} color="#FFFFFF" />
+          {/* Empty State */}
+          {testResults.length === 0 && (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="document-text-outline" size={80} color="#CBD5E0" />
               </View>
-              <View style={styles.resultInfo}>
-                <ThemedText style={styles.resultTitle}>Blood Glucose</ThemedText>
-                <ThemedText style={styles.resultDate}>July 28, 2025</ThemedText>
-                <View style={styles.statusBadge}>
-                  <ThemedText style={styles.statusText}>Normal</ThemedText>
-                </View>
-              </View>
+              <ThemedText style={styles.emptyTitle}>No Test Results Found</ThemedText>
+              <ThemedText style={styles.emptyMessage}>
+                No test results match your current filters, or you haven't had any tests yet.
+              </ThemedText>
+              <TouchableOpacity style={styles.bookTestButton} onPress={handleBookTest}>
+                <ThemedText style={styles.bookTestButtonText}>Book a Test</ThemedText>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.viewButton}>
-              <ThemedText style={styles.viewButtonText}>View Full Report</ThemedText>
-              <Ionicons name="chevron-forward" size={18} color="#21AEA8" />
-            </TouchableOpacity>
-          </View>
+          )}
+
+          {/* Results List - for when there are results */}
+          {testResults.length > 0 && (
+            <View style={styles.resultsList}>
+              {testResults.map((result: any, index: number) => (
+                <View key={index} style={styles.resultCard}>
+                  <View style={styles.resultHeader}>
+                    <View style={styles.resultIcon}>
+                      <Ionicons name="flask" size={24} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.resultInfo}>
+                      <ThemedText style={styles.resultTitle}>{result.title}</ThemedText>
+                      <ThemedText style={styles.resultDate}>{result.date}</ThemedText>
+                      <View style={styles.statusBadge}>
+                        <ThemedText style={styles.statusText}>Normal</ThemedText>
+                      </View>
+                    </View>
+                  </View>
+                  <TouchableOpacity style={styles.viewButton}>
+                    <ThemedText style={styles.viewButtonText}>View Full Report</ThemedText>
+                    <Ionicons name="chevron-forward" size={18} color="#21AEA8" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -96,6 +243,128 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: '#718096',
+  },
+  mainContent: {
+    padding: 20,
+  },
+  titleRow: {
+    marginBottom: 24,
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    color: '#718096',
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+    flexWrap: 'wrap',
+  },
+  filterGroup: {
+    flex: 1,
+    minWidth: 150,
+  },
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#21AEA8',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  filterDropdown: {
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  filterText: {
+    fontSize: 13,
+    color: '#2D3748',
+    flex: 1,
+  },
+  dropdownList: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    borderRadius: 8,
+    maxHeight: 200,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    color: '#2D3748',
+    flex: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F7FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 8,
+  },
+  emptyMessage: {
+    fontSize: 14,
+    color: '#718096',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  bookTestButton: {
+    backgroundColor: '#21AEA8',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  bookTestButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  resultsList: {
+    marginTop: 16,
   },
   section: {
     marginTop: 20,
