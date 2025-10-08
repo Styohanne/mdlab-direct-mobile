@@ -3,9 +3,47 @@ import { ThemedText } from '@/components/themed-text';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useRef } from 'react';
+import * as Notifications from 'expo-notifications';
+import { 
+  registerForPushNotificationsAsync,
+  addNotificationReceivedListener,
+  addNotificationResponseReceivedListener
+} from '@/utils/notifications';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
+
+  useEffect(() => {
+    // Register for push notifications
+    registerForPushNotificationsAsync();
+
+    // Listen for notifications received while app is foregrounded
+    notificationListener.current = addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    // Listen for notification taps
+    responseListener.current = addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      
+      // Navigate to the appropriate screen based on notification type
+      if (data.screen) {
+        router.push(data.screen as any);
+      }
+    });
+
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
+  }, []);
 
   const handleLogout = () => {
     router.replace('/(tabs)');

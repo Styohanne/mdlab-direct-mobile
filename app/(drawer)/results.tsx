@@ -1,8 +1,10 @@
 import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
+import { scheduleResultNotification } from '@/utils/notifications';
+import { generateTestResultPDF } from '@/utils/pdfGenerator';
 
 export default function ResultsScreen() {
   const [selectedTestType, setSelectedTestType] = useState('all');
@@ -33,8 +35,67 @@ export default function ResultsScreen() {
     { label: 'Test Name', value: 'name' },
   ];
 
-  // Mock data - empty array means no results
-  const testResults: any[] = [];
+  // Mock data - you can add sample results here or keep empty
+  const testResults: any[] = [
+    {
+      id: 1,
+      title: 'Complete Blood Count (CBC)',
+      date: 'September 28, 2025',
+      status: 'normal',
+      hasNotificationSent: true,
+      resultItems: [
+        { parameter: 'Hemoglobin', result: '14.5', unit: 'g/dL', normalRange: '13.0-17.0', status: 'normal' },
+        { parameter: 'White Blood Cell Count', result: '7.2', unit: 'x10^9/L', normalRange: '4.0-11.0', status: 'normal' },
+        { parameter: 'Platelet Count', result: '250', unit: 'x10^9/L', normalRange: '150-400', status: 'normal' },
+      ],
+    },
+    {
+      id: 2,
+      title: 'Lipid Profile',
+      date: 'September 15, 2025',
+      status: 'high',
+      hasNotificationSent: true,
+      resultItems: [
+        { parameter: 'Total Cholesterol', result: '220', unit: 'mg/dL', normalRange: '<200', status: 'high' },
+        { parameter: 'HDL Cholesterol', result: '45', unit: 'mg/dL', normalRange: '>40', status: 'normal' },
+        { parameter: 'LDL Cholesterol', result: '145', unit: 'mg/dL', normalRange: '<100', status: 'high' },
+      ],
+    },
+  ];
+
+  // Simulate new result notification (you would call this when a new result is added)
+  useEffect(() => {
+    // Example: Send notification when new results are available
+    // In production, this would be triggered by your backend
+    const checkForNewResults = async () => {
+      const newResult = testResults.find(r => !r.hasNotificationSent);
+      if (newResult) {
+        await scheduleResultNotification(newResult.title, newResult.date);
+        // Mark as notification sent (in real app, this would be saved to backend)
+      }
+    };
+    
+    // Uncomment to test notifications:
+    // checkForNewResults();
+  }, []);
+
+  const handlePrintResult = async (result: any) => {
+    try {
+      await generateTestResultPDF({
+        testName: result.title,
+        patientName: 'Renz Ramos',
+        patientAge: 25,
+        patientGender: 'Male',
+        date: result.date,
+        resultItems: result.resultItems,
+        labTechnician: 'Maria Santos, RMT',
+        doctorName: 'Dr. Juan Dela Cruz, MD',
+        remarks: result.status === 'high' ? 'Please consult with your physician regarding elevated values.' : 'All parameters are within normal limits.',
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    }
+  };
 
   const handleBookTest = () => {
     Alert.alert(
@@ -202,15 +263,41 @@ export default function ResultsScreen() {
                     <View style={styles.resultInfo}>
                       <ThemedText style={styles.resultTitle}>{result.title}</ThemedText>
                       <ThemedText style={styles.resultDate}>{result.date}</ThemedText>
-                      <View style={styles.statusBadge}>
-                        <ThemedText style={styles.statusText}>Normal</ThemedText>
+                      <View style={[
+                        styles.statusBadge,
+                        result.status === 'high' ? styles.statusBadgeHigh : 
+                        result.status === 'low' ? styles.statusBadgeLow : 
+                        styles.statusBadgeNormal
+                      ]}>
+                        <ThemedText style={[
+                          styles.statusText,
+                          result.status === 'high' ? styles.statusTextHigh : 
+                          result.status === 'low' ? styles.statusTextLow : 
+                          styles.statusTextNormal
+                        ]}>
+                          {result.status === 'high' ? 'Attention Needed' : 
+                           result.status === 'low' ? 'Low Values' : 
+                           'Normal'}
+                        </ThemedText>
                       </View>
                     </View>
                   </View>
-                  <TouchableOpacity style={styles.viewButton}>
-                    <ThemedText style={styles.viewButtonText}>View Full Report</ThemedText>
-                    <Ionicons name="chevron-forward" size={18} color="#21AEA8" />
-                  </TouchableOpacity>
+                  <View style={styles.resultActions}>
+                    <TouchableOpacity 
+                      style={styles.viewButton}
+                      onPress={() => Alert.alert('View Result', 'Full result details would be displayed here.')}
+                    >
+                      <Ionicons name="eye-outline" size={18} color="#21AEA8" />
+                      <ThemedText style={styles.viewButtonText}>View Full Report</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.printButton}
+                      onPress={() => handlePrintResult(result)}
+                    >
+                      <Ionicons name="print-outline" size={18} color="#21AEA8" />
+                      <ThemedText style={styles.printButtonText}>Print / Download</ThemedText>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </View>
@@ -415,22 +502,66 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignSelf: 'flex-start',
   },
+  statusBadgeNormal: {
+    backgroundColor: '#C6F6D5',
+  },
+  statusBadgeHigh: {
+    backgroundColor: '#FED7D7',
+  },
+  statusBadgeLow: {
+    backgroundColor: '#FEEBC8',
+  },
   statusText: {
     color: '#22543D',
     fontSize: 12,
     fontWeight: '600',
   },
-  viewButton: {
+  statusTextNormal: {
+    color: '#22543D',
+  },
+  statusTextHigh: {
+    color: '#742A2A',
+  },
+  statusTextLow: {
+    color: '#7C2D12',
+  },
+  resultActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
+  viewButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#E8F5F3',
+    borderRadius: 6,
+  },
   viewButtonText: {
     color: '#21AEA8',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  printButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#E8F5F3',
+    borderRadius: 6,
+  },
+  printButtonText: {
+    color: '#21AEA8',
+    fontSize: 13,
     fontWeight: '600',
   },
 });

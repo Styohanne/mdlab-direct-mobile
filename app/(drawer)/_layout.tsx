@@ -39,6 +39,16 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
+          name="payments"
+          options={{
+            drawerLabel: 'Payments',
+            title: 'Payments',
+            drawerIcon: ({ color, size }: { color: string; size: number }) => (
+              <Ionicons name="wallet" size={size} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
           name="results"
           options={{
             drawerLabel: 'Results',
