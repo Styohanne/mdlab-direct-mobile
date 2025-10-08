@@ -14,67 +14,69 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.avatarLarge}>
-            <ThemedText style={styles.avatarLargeText}>R</ThemedText>
+          <ThemedText style={styles.headerTitle}>My Profile</ThemedText>
+          <ThemedText style={styles.headerSubtitle}>Manage your personal information</ThemedText>
+        </View>
+
+        <View style={styles.mainContent}>
+          <View style={styles.titleRow}>
+            <View>
+              <ThemedText style={styles.pageTitle}>My Profile</ThemedText>
+              <ThemedText style={styles.pageSubtitle}>View and update your personal information</ThemedText>
+            </View>
+            <TouchableOpacity style={styles.editButton}>
+              <ThemedText style={styles.editButtonText}>Edit</ThemedText>
+            </TouchableOpacity>
           </View>
-          <ThemedText style={styles.profileName}>Renz Ramos</ThemedText>
-          <ThemedText style={styles.profileEmail}>renz.ramos@email.com</ThemedText>
+
+          {/* Profile Card */}
+          <View style={styles.profileCard}>
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarLarge}>
+                <ThemedText style={styles.avatarLargeText}>R</ThemedText>
+              </View>
+              <View style={styles.profileHeaderInfo}>
+                <ThemedText style={styles.profileName}>Renz Ramos</ThemedText>
+                <ThemedText style={styles.profileEmail}>renz09358@gmail.com</ThemedText>
+                <View style={styles.roleBadge}>
+                  <ThemedText style={styles.roleBadgeText}>Patient</ThemedText>
+                </View>
+              </View>
+            </View>
+
+            {/* Profile Details */}
+            <View style={styles.profileDetails}>
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailColumn}>
+                  <ThemedText style={styles.detailLabel}>FULL NAME</ThemedText>
+                  <ThemedText style={styles.detailValue}>Renz Ramos</ThemedText>
+                </View>
+                <View style={styles.detailColumn}>
+                  <ThemedText style={styles.detailLabel}>EMAIL ADDRESS</ThemedText>
+                  <ThemedText style={styles.detailValue}>renz09358@gmail.com</ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailColumn}>
+                  <ThemedText style={styles.detailLabel}>GENDER</ThemedText>
+                  <ThemedText style={styles.detailValue}>Not provided</ThemedText>
+                </View>
+                <View style={styles.detailColumn}>
+                  <ThemedText style={styles.detailLabel}>DATE OF BIRTH</ThemedText>
+                  <ThemedText style={styles.detailValue}>Not provided</ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailColumn}>
+                  <ThemedText style={styles.detailLabel}>ADDRESS</ThemedText>
+                  <ThemedText style={styles.detailValue}>Not provided</ThemedText>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
-
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="person-outline" size={20} color="#21AEA8" />
-            </View>
-            <ThemedText style={styles.menuText}>Edit Profile</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color="#A0AEC0" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="notifications-outline" size={20} color="#21AEA8" />
-            </View>
-            <ThemedText style={styles.menuText}>Notifications</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color="#A0AEC0" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="lock-closed-outline" size={20} color="#21AEA8" />
-            </View>
-            <ThemedText style={styles.menuText}>Change Password</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color="#A0AEC0" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#21AEA8" />
-            </View>
-            <ThemedText style={styles.menuText}>Privacy Settings</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color="#A0AEC0" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="help-circle-outline" size={20} color="#21AEA8" />
-            </View>
-            <ThemedText style={styles.menuText}>Help & Support</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color="#A0AEC0" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="information-circle-outline" size={20} color="#21AEA8" />
-            </View>
-            <ThemedText style={styles.menuText}>About</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color="#A0AEC0" />
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-          <ThemedText style={styles.logoutText}>Logout</ThemedText>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -91,86 +93,126 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingVertical: 32,
-    alignItems: 'center',
+    paddingVertical: 24,
   },
-  avatarLarge: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#21AEA8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  avatarLargeText: {
-    color: '#FFFFFF',
-    fontSize: 40,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 4,
   },
-  profileName: {
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#718096',
+  },
+  mainContent: {
+    padding: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  pageTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#2D3748',
     marginBottom: 4,
   },
-  profileEmail: {
+  pageSubtitle: {
     fontSize: 14,
     color: '#718096',
   },
-  section: {
-    marginTop: 20,
-    paddingHorizontal: 20,
+  editButton: {
+    backgroundColor: '#21AEA8',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  profileCard: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
     borderRadius: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  menuItem: {
+  profileHeader: {
+    backgroundColor: '#21AEA8',
     flexDirection: 'row',
+    padding: 20,
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
-  menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#E6FFFA',
+  avatarLarge: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
-  menuText: {
+  avatarLargeText: {
+    color: '#21AEA8',
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  profileHeaderInfo: {
     flex: 1,
-    fontSize: 16,
-    color: '#2D3748',
   },
-  logoutButton: {
-    backgroundColor: '#E53E3E',
-    marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 32,
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoutText: {
+  profileName: {
+    fontSize: 22,
+    fontWeight: 'bold',
     color: '#FFFFFF',
-    fontSize: 16,
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 8,
+  },
+  roleBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  roleBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 8,
+  },
+  profileDetails: {
+    padding: 20,
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 20,
+  },
+  detailColumn: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#21AEA8',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 15,
+    color: '#2D3748',
+    fontWeight: '500',
   },
 });
