@@ -4,11 +4,13 @@ import { ThemedView } from '@/components/themed-view';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSignIn = () => {
     // Simple authentication check
@@ -51,14 +53,26 @@ export default function LoginScreen() {
           />
 
           {/* Password Input */}
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Password"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity 
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons 
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                size={24} 
+                color="#666" 
+              />
+            </TouchableOpacity>
+          </View>
 
           {/* Sign In Button */}
           <TouchableOpacity 
@@ -144,6 +158,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
     color: '#000',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingRight: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  eyeIcon: {
+    padding: 8,
   },
   signInButton: {
     backgroundColor: '#21AEA8',

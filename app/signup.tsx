@@ -4,6 +4,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -11,6 +12,8 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -54,24 +57,48 @@ export default function SignUpScreen() {
           />
 
           {/* Password Input */}
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Password"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity 
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons 
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                size={24} 
+                color="#666" 
+              />
+            </TouchableOpacity>
+          </View>
 
           {/* Confirm Password Input */}
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            placeholderTextColor="#999"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Confirm Password"
+              placeholderTextColor="#999"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+            />
+            <TouchableOpacity 
+              style={styles.eyeIcon}
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              <Ionicons 
+                name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} 
+                size={24} 
+                color="#666" 
+              />
+            </TouchableOpacity>
+          </View>
 
           {/* Sign Up Button */}
           <TouchableOpacity style={styles.signUpButton} activeOpacity={0.8}>
@@ -153,6 +180,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
     color: '#000',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingRight: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  eyeIcon: {
+    padding: 8,
   },
   signUpButton: {
     backgroundColor: '#21AEA8',
