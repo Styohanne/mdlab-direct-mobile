@@ -1,23 +1,24 @@
-import { StyleSheet, View, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
-import * as Notifications from 'expo-notifications';
-import { 
-  registerForPushNotificationsAsync,
+import { useAppointmentStore } from '@/utils/appointments';
+import {
   addNotificationReceivedListener,
-  addNotificationResponseReceivedListener
+  addNotificationResponseReceivedListener,
+  registerForPushNotificationsAsync
 } from '@/utils/notifications';
-import { DrawerActions } from '@react-navigation/native';
-import { useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
+import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const { appointments } = useAppointmentStore();
 
   useEffect(() => {
     // Register for push notifications
@@ -51,6 +52,24 @@ export default function DashboardScreen() {
   const handleLogout = () => {
     router.replace('/(tabs)');
   };
+
+  // Update the navigation handler
+  const handleNavigate = (route: string) => {
+    try {
+      // Remove the leading slash and (drawer) prefix for cleaner navigation
+      const cleanRoute = route.replace('/', '').replace('(drawer)/', '');
+      navigation.navigate(cleanRoute as never);
+      
+      // Debug log
+      console.log('Navigating to:', cleanRoute);
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  };
+
+  const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming').length;
+  const pastAppointments = appointments.filter(apt => apt.status !== 'upcoming').length;
+  const totalAppointments = appointments.length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -109,15 +128,15 @@ export default function DashboardScreen() {
           </View>
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
-              <ThemedText style={styles.statNumber}>2</ThemedText>
+              <ThemedText style={styles.statNumber}>{upcomingAppointments}</ThemedText>
               <ThemedText style={styles.statLabel}>Upcoming{'\n'}Appointments</ThemedText>
             </View>
             <View style={styles.statBox}>
-              <ThemedText style={styles.statNumber}>4</ThemedText>
+              <ThemedText style={styles.statNumber}>{pastAppointments}</ThemedText>
               <ThemedText style={styles.statLabel}>Past{'\n'}Appointments</ThemedText>
             </View>
             <View style={styles.statBox}>
-              <ThemedText style={styles.statNumber}>6</ThemedText>
+              <ThemedText style={styles.statNumber}>{totalAppointments}</ThemedText>
               <ThemedText style={styles.statLabel}>Total{'\n'}Appointments</ThemedText>
             </View>
           </View>
@@ -127,7 +146,10 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleNavigate('appointments')}
+            >
               <View style={styles.actionIcon}>
                 <Ionicons name="calendar" size={24} color="#FFFFFF" />
               </View>
@@ -135,7 +157,10 @@ export default function DashboardScreen() {
               <ThemedText style={styles.actionSubtitle}>Schedule your next lab test</ThemedText>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleNavigate('results')}
+            >
               <View style={styles.actionIcon}>
                 <Ionicons name="document-text" size={24} color="#FFFFFF" />
               </View>
@@ -143,7 +168,10 @@ export default function DashboardScreen() {
               <ThemedText style={styles.actionSubtitle}>Check your latest test results</ThemedText>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleNavigate('mobile-lab')}
+            >
               <View style={styles.actionIcon}>
                 <Ionicons name="car" size={24} color="#FFFFFF" />
               </View>
@@ -151,7 +179,10 @@ export default function DashboardScreen() {
               <ThemedText style={styles.actionSubtitle}>Check community visit schedule</ThemedText>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => handleNavigate('profile')}
+            >
               <View style={styles.actionIcon}>
                 <Ionicons name="person" size={24} color="#FFFFFF" />
               </View>
