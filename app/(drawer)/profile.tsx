@@ -1,13 +1,53 @@
-import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Modal, Platform, SafeAreaView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [profile, setProfile] = useState({
+    gender: 'Not provided',
+    dateOfBirth: 'Not provided',
+    address: 'Not provided'
+  });
+  const [editingField, setEditingField] = useState<'gender' | 'dateOfBirth' | 'address' | null>(null);
+  const [tempValue, setTempValue] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleLogout = () => {
     router.replace('/(tabs)');
+  };
+
+  const handleEdit = () => {
+    setIsEditing(!isEditing);
+  };
+
+  const handleFieldEdit = (field: 'gender' | 'dateOfBirth' | 'address') => {
+    setEditingField(field);
+    setTempValue(profile[field]);
+    if (field === 'dateOfBirth') {
+      setShowDatePicker(true);
+    }
+  };
+
+  const handleSave = () => {
+    if (editingField) {
+      setProfile(prev => ({
+        ...prev,
+        [editingField]: tempValue
+      }));
+    }
+    setEditingField(null);
+    setTempValue('');
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setTempValue(selectedDate.toLocaleDateString());
+    }
   };
 
   return (
@@ -24,8 +64,16 @@ export default function ProfileScreen() {
               <ThemedText style={styles.pageTitle}>My Profile</ThemedText>
               <ThemedText style={styles.pageSubtitle}>View and update your personal information</ThemedText>
             </View>
-            <TouchableOpacity style={styles.editButton}>
-              <ThemedText style={styles.editButtonText}>Edit</ThemedText>
+            <TouchableOpacity 
+              style={[
+                styles.editButton,
+                isEditing && { backgroundColor: '#E53E3E' } // Red background when editing
+              ]}
+              onPress={handleEdit}
+            >
+              <ThemedText style={styles.editButtonText}>
+                {isEditing ? 'Cancel' : 'Edit'}
+              </ThemedText>
             </TouchableOpacity>
           </View>
 
@@ -60,24 +108,104 @@ export default function ProfileScreen() {
               <View style={styles.detailsGrid}>
                 <View style={styles.detailColumn}>
                   <ThemedText style={styles.detailLabel}>GENDER</ThemedText>
-                  <ThemedText style={styles.detailValue}>Not provided</ThemedText>
+                  <TouchableOpacity 
+                    onPress={() => isEditing && handleFieldEdit('gender')}
+                    style={isEditing ? styles.editableField : undefined}
+                  >
+                    <ThemedText style={styles.detailValue}>{profile.gender}</ThemedText>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.detailColumn}>
                   <ThemedText style={styles.detailLabel}>DATE OF BIRTH</ThemedText>
-                  <ThemedText style={styles.detailValue}>Not provided</ThemedText>
+                  <TouchableOpacity 
+                    onPress={() => isEditing && handleFieldEdit('dateOfBirth')}
+                    style={isEditing ? styles.editableField : undefined}
+                  >
+                    <ThemedText style={styles.detailValue}>{profile.dateOfBirth}</ThemedText>
+                  </TouchableOpacity>
                 </View>
               </View>
 
               <View style={styles.detailsGrid}>
                 <View style={styles.detailColumn}>
                   <ThemedText style={styles.detailLabel}>ADDRESS</ThemedText>
-                  <ThemedText style={styles.detailValue}>Not provided</ThemedText>
+                  <TouchableOpacity 
+                    onPress={() => isEditing && handleFieldEdit('address')}
+                    style={isEditing ? styles.editableField : undefined}
+                  >
+                    <ThemedText style={styles.detailValue}>{profile.address}</ThemedText>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
           </View>
         </View>
       </ScrollView>
+
+      {/* Add the Edit Modal */}
+      <Modal
+        visible={editingField !== null}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ThemedText style={styles.modalTitle}>
+              Edit {editingField?.replace(/([A-Z])/g, ' $1').toLowerCase()}
+            </ThemedText>
+            
+            {editingField === 'gender' ? (
+              <View style={styles.optionsList}>
+                {['Male', 'Female', 'Other', 'Prefer not to say'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.optionItem}
+                    onPress={() => {
+                      setTempValue(option);
+                      handleSave();
+                    }}
+                  >
+                    <ThemedText style={styles.optionText}>{option}</ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : editingField === 'dateOfBirth' ? (
+              <DateTimePicker
+                value={new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+              />
+            ) : (
+              <TextInput
+                style={styles.input}
+                value={tempValue}
+                onChangeText={setTempValue}
+                placeholder="Enter your address"
+                multiline
+              />
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setEditingField(null)}
+              >
+                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+              </TouchableOpacity>
+              {editingField !== 'gender' && (
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.saveButton]}
+                  onPress={handleSave}
+                >
+                  <ThemedText style={styles.saveButtonText}>Save</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -214,5 +342,80 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#2D3748',
     fontWeight: '500',
+  },
+  editableField: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    padding: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 20,
+    textTransform: 'capitalize',
+  },
+  optionsList: {
+    width: '100%',
+  },
+  optionItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#2D3748',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  saveButton: {
+    backgroundColor: '#21AEA8',
+  },
+  cancelButton: {
+    backgroundColor: '#EDF2F7',
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelButtonText: {
+    color: '#4A5568',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#2D3748',
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
 });
