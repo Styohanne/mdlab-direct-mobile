@@ -159,13 +159,27 @@ export default function ProfileScreen() {
                 {['Male', 'Female', 'Other', 'Prefer not to say'].map((option) => (
                   <TouchableOpacity
                     key={option}
-                    style={styles.optionItem}
+                    style={[
+                      styles.optionItem,
+                      tempValue === option && styles.selectedOption
+                    ]}
                     onPress={() => {
                       setTempValue(option);
-                      handleSave();
+                      setProfile(prev => ({
+                        ...prev,
+                        gender: option
+                      }));
+                      setEditingField(null);
                     }}
                   >
-                    <ThemedText style={styles.optionText}>{option}</ThemedText>
+                    <ThemedText 
+                      style={[
+                        styles.optionText,
+                        tempValue === option && styles.selectedOptionText
+                      ]}
+                    >
+                      {option}
+                    </ThemedText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -417,5 +431,13 @@ const styles = StyleSheet.create({
     color: '#2D3748',
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  selectedOption: {
+    backgroundColor: '#E6FFFD',
+    borderColor: '#21AEA8',
+  },
+  selectedOptionText: {
+    color: '#21AEA8',
+    fontWeight: '600',
   },
 });

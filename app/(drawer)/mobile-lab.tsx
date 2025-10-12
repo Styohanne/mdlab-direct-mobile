@@ -1,8 +1,28 @@
-import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { Modal, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+
+interface MobileLabSchedule {
+  isActive: boolean;
+  currentLocation?: string;
+  schedules: Array<{
+    date: string;
+    location: string;
+    time: string;
+  }>;
+}
 
 export default function MobileLabScreen() {
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  
+  // Example schedule data - replace with your actual data
+  const scheduleData: MobileLabSchedule = {
+    isActive: false,
+    currentLocation: undefined,
+    schedules: []
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -19,7 +39,10 @@ export default function MobileLabScreen() {
                 Community laboratory testing in different barangays across Nueva Vizcaya
               </ThemedText>
             </View>
-            <TouchableOpacity style={styles.checkButton}>
+            <TouchableOpacity 
+              style={styles.checkButton}
+              onPress={() => setShowScheduleModal(true)}
+            >
               <Ionicons name="calendar" size={16} color="#FFFFFF" />
               <ThemedText style={styles.checkButtonText}>Check Schedule & Location</ThemedText>
             </TouchableOpacity>
@@ -204,6 +227,65 @@ export default function MobileLabScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showScheduleModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowScheduleModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Mobile Lab Schedule</ThemedText>
+              <TouchableOpacity 
+                onPress={() => setShowScheduleModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#4A5568" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Current Status Box */}
+            <View style={styles.statusBox}>
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: scheduleData.isActive ? '#FBD38D' : '#E2E8F0' }
+              ]}>
+                <ThemedText style={styles.statusText}>
+                  {scheduleData.isActive ? 'Active Service' : 'No Active Service'}
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.locationText}>
+                {scheduleData.currentLocation || 'No active location'}
+              </ThemedText>
+            </View>
+
+            {/* Schedule Box */}
+            <View style={styles.scheduleBox}>
+              <ThemedText style={styles.scheduleBoxTitle}>Mobile Lab Schedule</ThemedText>
+              {scheduleData.schedules.length > 0 ? (
+                scheduleData.schedules.map((schedule, index) => (
+                  <View key={index} style={styles.scheduleItem}>
+                    <ThemedText style={styles.scheduleDate}>{schedule.date}</ThemedText>
+                    <ThemedText style={styles.scheduleLocation}>{schedule.location}</ThemedText>
+                    <ThemedText style={styles.scheduleTime}>{schedule.time}</ThemedText>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptySchedule}>
+                  <ThemedText style={styles.emptyScheduleText}>
+                    No mobile lab schedules are currently available.
+                  </ThemedText>
+                  <ThemedText style={styles.contactText}>
+                    Please contact us for more information about upcoming visits.
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -484,5 +566,103 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#21AEA8',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3748',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  statusBox: {
+    backgroundColor: '#F7FAFC',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4A5568',
+  },
+  locationText: {
+    fontSize: 16,
+    color: '#4A5568',
+    fontWeight: '500',
+  },
+  scheduleBox: {
+    backgroundColor: '#F7FAFC',
+    borderRadius: 8,
+    padding: 16,
+  },
+  scheduleBoxTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 12,
+  },
+  emptySchedule: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyScheduleText: {
+    fontSize: 14,
+    color: '#718096',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  contactText: {
+    fontSize: 14,
+    color: '#A0AEC0',
+    textAlign: 'center',
+  },
+  scheduleItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 12,
+  },
+  scheduleDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  scheduleLocation: {
+    fontSize: 14,
+    color: '#4A5568',
+    marginBottom: 2,
+  },
+  scheduleTime: {
+    fontSize: 12,
+    color: '#718096',
   },
 });
