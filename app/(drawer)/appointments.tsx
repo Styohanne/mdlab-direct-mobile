@@ -138,22 +138,10 @@ export default function AppointmentsScreen() {
     setSelectedTest(test.name);
     setShowTestOptions(false);
     
-    // Show recommendation modal
-    Alert.alert(
-      'Test Recommendation',
-      test.note,
-      [
-        { 
-          text: 'OK',
-          onPress: () => {
-            // Pre-select morning slot if test recommends morning
-            if (test.recommendedTime === 'morning') {
-              setSelectedTimeSlot(TIME_SLOTS[0]);
-            }
-          }
-        }
-      ]
-    );
+    // Only update time slot if test requires morning
+    if (test.recommendedTime === 'morning') {
+      setSelectedTimeSlot(TIME_SLOTS[0]);
+    }
   };
 
   const handleLocationSelect = (location: typeof LAB_LOCATIONS[0]) => {
@@ -315,6 +303,14 @@ export default function AppointmentsScreen() {
                 <ThemedText style={styles.selectedValueText}>{selectedTimeSlot.label}</ThemedText>
                 <Ionicons name="chevron-down" size={20} color="#1A202C" />
               </TouchableOpacity>
+              
+              {/* Add this recommendation section */}
+              <View style={styles.recommendationContainer}>
+                <View style={styles.recommendationLine} />
+                <ThemedText style={styles.recommendationText}>
+                  {TEST_OPTIONS.find(test => test.name === selectedTest)?.note || 'Select a test to see recommendations'}
+                </ThemedText>
+              </View>
             </View>
 
             {/* Location Selection */}
@@ -798,5 +794,26 @@ const styles = StyleSheet.create({
   },
   pastAppointmentsContainer: {
     padding: 8,
+  },
+  recommendationContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F7FAFC',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  recommendationLine: {
+    width: 4,
+    height: '100%',
+    backgroundColor: '#21AEA8',
+    borderRadius: 2,
+    marginRight: 12,
+  },
+  recommendationText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#4A5568',
+    lineHeight: 20,
   },
 });

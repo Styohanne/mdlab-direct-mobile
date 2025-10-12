@@ -253,8 +253,10 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center', // Changed from 'flex-start'
     marginBottom: 24,
+    paddingRight: 4, // Added padding to ensure button is visible
+    width: '100%', // Added to ensure full width
   },
   pageTitle: {
     fontSize: 24,
@@ -268,9 +270,11 @@ const styles = StyleSheet.create({
   },
   editButton: {
     backgroundColor: '#21AEA8',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16, // Reduced from 24 to take less space
     paddingVertical: 10,
     borderRadius: 8,
+    minWidth: 80, // Added to ensure consistent width
+    alignItems: 'center', // Added to center text
   },
   editButtonText: {
     color: '#FFFFFF',
