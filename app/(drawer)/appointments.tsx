@@ -1,481 +1,502 @@
-import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity, Modal, Platform } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
+import { Appointment, useAppointmentStore } from '@/utils/appointments';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Picker } from '@react-native-picker/picker';
+import {
+  Alert,
+  Modal, Platform, SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from 'react-native';
+
+const TEST_OPTIONS = [
+  { 
+    name: 'Urinalysis', 
+    recommendedTime: 'morning',
+    note: 'Best taken in the morning for accurate results',
+    price: 200,
+    description: 'Complete Urine Examination'
+  },
+  { 
+    name: 'X-Ray Chest (PA)', 
+    recommendedTime: 'any',
+    note: 'Can be done any time of day',
+    price: 600,
+    description: 'Posterior-Anterior Chest X-Ray'
+  },
+  { 
+    name: 'Fasting Blood Sugar', 
+    recommendedTime: 'morning',
+    note: 'Must be taken while fasting for 8-12 hours',
+    price: 150,
+    description: 'FBS Test'
+  },
+  { 
+    name: 'Lipid Profile', 
+    recommendedTime: 'morning',
+    note: 'Must be taken while fasting for 8-12 hours',
+    price: 450,
+    description: 'Complete Cholesterol Panel'
+  },
+  { 
+    name: 'Complete Blood Count', 
+    recommendedTime: 'any',
+    note: 'Can be done any time of day',
+    price: 350,
+    description: 'CBC Test'
+  }
+];
+
+const TIME_SLOTS = [
+  { id: 'morning', label: '7:00 AM - 10:00 AM (Morning - Fasting Tests)' },
+  { id: 'afternoon', label: '1:00 PM - 4:00 PM (Afternoon - After Lunch)' }
+];
+
+const LAB_LOCATIONS = [
+  {
+    id: 'main',
+    name: 'MDLAB Direct - Main Branch',
+    address: '123 Main Street, City',
+    availableTests: ['Urinalysis', 'X-Ray Chest (PA)', 'Fasting Blood Sugar', 'Lipid Profile', 'Complete Blood Count']
+  },
+  {
+    id: 'north',
+    name: 'MDLAB Direct - North Branch',
+    address: '456 North Ave, City',
+    availableTests: ['Urinalysis', 'Fasting Blood Sugar', 'Complete Blood Count']
+  },
+  {
+    id: 'south',
+    name: 'MDLAB Direct - South Branch',
+    address: '789 South Road, City',
+    availableTests: ['Urinalysis', 'X-Ray Chest (PA)', 'Lipid Profile', 'Complete Blood Count']
+  }
+];
 
 export default function AppointmentsScreen() {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedTest, setSelectedTest] = useState('');
-  const [selectedTestLabel, setSelectedTestLabel] = useState('Choose a test...');
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(9); // October (0-indexed)
-  const [selectedYear, setSelectedYear] = useState(2025);
-  const [selectedSchedule, setSelectedSchedule] = useState('');
-  const [selectedScheduleLabel, setSelectedScheduleLabel] = useState('Choose a schedule...');
-  const [selectedLocation, setSelectedLocation] = useState('MDLAB Direct - Main Branch');
-  const [showTestPicker, setShowTestPicker] = useState(false);
-  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-
-  const tests = [
-    { label: 'Urinalysis (Complete Urine Examination) - ₱200', value: 'urinalysis' },
-    { label: 'X-Ray Chest (PA) - ₱600', value: 'xray' },
-    { label: 'Fasting Blood Sugar (FBS) - ₱150', value: 'fbs' },
-    { label: 'Lipid Profile - ₱450', value: 'lipid' },
-    { label: 'Complete Blood Count (CBC) - ₱350', value: 'cbc' },
-  ];
-
-  const schedules = [
-    { label: '7:00 AM - 10:00 AM (Morning - Fasting Tests)', value: 'morning' },
-    { label: '1:00 PM - 4:00 PM (Afternoon - After Lunch)', value: 'afternoon' },
-  ];
-
-  const locations = [
-    'MDLAB Direct - Main Branch',
-    'MDLAB Direct - North Branch',
-    'MDLAB Direct - South Branch',
-  ];
+  const { appointments, addAppointment, rescheduleAppointment, cancelAppointment } =
+    useAppointmentStore();
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedTest, setSelectedTest] = useState('Blood Test');
+  const [selectedLocation, setSelectedLocation] = useState(LAB_LOCATIONS[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTestOptions, setShowTestOptions] = useState(false);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(TIME_SLOTS[0]);
+  const [showTimeSlots, setShowTimeSlots] = useState(false);
+  const [showLocations, setShowLocations] = useState(false);
 
   const handleBookAppointment = () => {
-    // Handle booking logic here
-    setModalVisible(false);
-    // Reset form
-    setSelectedTest('');
-    setSelectedTestLabel('Choose a test...');
-    setSelectedDate(null);
-    setSelectedSchedule('');
-    setSelectedScheduleLabel('Choose a schedule...');
+    if (!selectedLocation.availableTests.includes(selectedTest)) {
+      Alert.alert(
+        'Cannot Book Appointment',
+        'The selected test is not available at this location.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    addAppointment({
+      testName: selectedTest,
+      date: selectedDate,
+      status: 'upcoming',
+      location: selectedLocation.name
+    });
+    setIsBookingModalVisible(false);
   };
 
-  const selectTest = (test: typeof tests[0]) => {
-    setSelectedTest(test.value);
-    setSelectedTestLabel(test.label);
-    setShowTestPicker(false);
+  const handleReschedule = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setSelectedDate(appointment.date);
+    setIsModalVisible(true);
   };
 
-  const selectSchedule = (schedule: typeof schedules[0]) => {
-    setSelectedSchedule(schedule.value);
-    setSelectedScheduleLabel(schedule.label);
-    setShowSchedulePicker(false);
-  };
-
-  const selectLocation = (location: string) => {
-    setSelectedLocation(location);
-    setShowLocationPicker(false);
-  };
-
-  const getDaysInMonth = (month: number, year: number) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (month: number, year: number) => {
-    return new Date(year, month, 1).getDay();
-  };
-
-  const goToPreviousMonth = () => {
-    if (selectedMonth === 0) {
-      if (selectedYear > 2025) {
-        setSelectedMonth(11);
-        setSelectedYear(selectedYear - 1);
-      }
-    } else {
-      setSelectedMonth(selectedMonth - 1);
+  const confirmReschedule = () => {
+    if (selectedAppointment) {
+      rescheduleAppointment(selectedAppointment.id, selectedDate);
+      setIsModalVisible(false);
     }
   };
 
-  const goToNextMonth = () => {
-    if (selectedMonth === 11) {
-      if (selectedYear < 2031) {
-        setSelectedMonth(0);
-        setSelectedYear(selectedYear + 1);
-      }
-    } else {
-      setSelectedMonth(selectedMonth + 1);
+  const handleCancel = (appointmentId: string) => {
+    cancelAppointment(appointmentId);
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setSelectedDate(selectedDate);
     }
   };
 
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                      'July', 'August', 'September', 'October', 'November', 'December'];
-
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-    const firstDay = getFirstDayOfMonth(selectedMonth, selectedYear);
-    const days = [];
-    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const handleTestSelect = (test: typeof TEST_OPTIONS[0]) => {
+    setSelectedTest(test.name);
+    setShowTestOptions(false);
     
-    const today = new Date();
-    const isCurrentMonth = today.getMonth() === selectedMonth && today.getFullYear() === selectedYear;
-    const currentDay = today.getDate();
-
-    // Day headers
-    const headers = dayNames.map((day, index) => (
-      <View key={`header-${index}`} style={styles.calendarDay}>
-        <ThemedText style={styles.dayHeader}>{day}</ThemedText>
-      </View>
-    ));
-
-    // Empty cells before first day
-    for (let i = 0; i < firstDay; i++) {
-      days.push(
-        <View key={`empty-${i}`} style={styles.calendarDay}>
-          <ThemedText style={styles.emptyDay}></ThemedText>
-        </View>
-      );
+    // Only update time slot if test requires morning
+    if (test.recommendedTime === 'morning') {
+      setSelectedTimeSlot(TIME_SLOTS[0]);
     }
-
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const isSelected = selectedDate === day;
-      const isToday = isCurrentMonth && day === currentDay;
-      days.push(
-        <TouchableOpacity
-          key={`day-${day}`}
-          style={styles.calendarDay}
-          onPress={() => setSelectedDate(day)}
-        >
-          <View style={[
-            styles.dayCircle,
-            isSelected && styles.selectedDay,
-            isToday && !isSelected && styles.todayDay
-          ]}>
-            <ThemedText style={[
-              styles.dayText,
-              isSelected && styles.selectedDayText,
-              isToday && !isSelected && styles.todayDayText
-            ]}>
-              {day}
-            </ThemedText>
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <View style={styles.calendarContainer}>
-        <View style={styles.calendarHeader}>
-          <TouchableOpacity 
-            onPress={goToPreviousMonth}
-            disabled={selectedYear === 2025 && selectedMonth === 0}
-            style={styles.monthNavButton}
-          >
-            <Ionicons 
-              name="chevron-back" 
-              size={20} 
-              color={selectedYear === 2025 && selectedMonth === 0 ? '#9CEEBE' : '#FFFFFF'} 
-            />
-          </TouchableOpacity>
-          <ThemedText style={styles.calendarMonth}>
-            {monthNames[selectedMonth]} {selectedYear}
-          </ThemedText>
-          <TouchableOpacity 
-            onPress={goToNextMonth}
-            disabled={selectedYear === 2031 && selectedMonth === 11}
-            style={styles.monthNavButton}
-          >
-            <Ionicons 
-              name="chevron-forward" 
-              size={20} 
-              color={selectedYear === 2031 && selectedMonth === 11 ? '#9CEEBE' : '#FFFFFF'} 
-            />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.calendar}>
-          {headers}
-          {days}
-        </View>
-      </View>
-    );
   };
+
+  const handleLocationSelect = (location: typeof LAB_LOCATIONS[0]) => {
+    setSelectedLocation(location);
+    setShowLocations(false);
+    
+    // Check if selected test is available at this location
+    if (!location.availableTests.includes(selectedTest)) {
+      Alert.alert(
+        'Test Not Available',
+        `${selectedTest} is not available at ${location.name}. Please select another test or location.`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const renderAppointmentCard = (appointment: Appointment) => (
+    <View key={appointment.id} style={styles.appointmentCard}>
+      <View style={styles.appointmentHeader}>
+        <ThemedText style={styles.testName}>{appointment.testName}</ThemedText>
+        <View style={[
+          styles.statusBadge,
+          { backgroundColor: appointment.status === 'upcoming' ? '#21AEA8' : '#718096' }
+        ]}>
+          <ThemedText style={styles.statusText}>
+            {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+          </ThemedText>
+        </View>
+      </View>
+
+      <View style={styles.appointmentDetails}>
+        <View style={styles.detailRow}>
+          <Ionicons name="calendar" size={16} color="#718096" />
+          <ThemedText style={styles.detailText}>
+            {appointment.date.toLocaleDateString()}
+          </ThemedText>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="location" size={16} color="#718096" />
+          <ThemedText style={styles.detailText}>{appointment.location}</ThemedText>
+        </View>
+      </View>
+
+      {appointment.status === 'upcoming' && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.rescheduleButton]}
+            onPress={() => handleReschedule(appointment)}
+          >
+            <Ionicons name="calendar" size={16} color="#21AEA8" />
+            <ThemedText style={styles.rescheduleText}>Reschedule</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.cancelButton]}
+            onPress={() => handleCancel(appointment.id)}
+          >
+            <Ionicons name="close-circle" size={16} color="#E53E3E" />
+            <ThemedText style={styles.cancelText}>Cancel</ThemedText>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>My Appointments</ThemedText>
-          <ThemedText style={styles.headerSubtitle}>Schedule and manage your appointments</ThemedText>
+      <View style={styles.header}>
+        <ThemedText style={styles.headerTitle}>My Appointments</ThemedText>
+        <TouchableOpacity
+          style={styles.bookButton}
+          onPress={() => setIsBookingModalVisible(true)}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <ThemedText style={styles.bookButtonText}>Book New</ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView>
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Upcoming Appointments</ThemedText>
+          {appointments.filter(apt => apt.status === 'upcoming').length === 0 ? (
+            <ThemedText style={styles.emptyStateText}>
+              No upcoming appointments. Book one to get started!
+            </ThemedText>
+          ) : (
+            appointments
+              .filter(apt => apt.status === 'upcoming')
+              .map(renderAppointmentCard)
+          )}
         </View>
 
-        <View style={styles.mainContent}>
-          <View style={styles.titleRow}>
-            <View>
-              <ThemedText style={styles.pageTitle}>My Appointments</ThemedText>
-              <ThemedText style={styles.pageSubtitle}>Manage your upcoming and past appointments</ThemedText>
+        <View style={[styles.section, styles.pastAppointmentsSection]}>
+          <ThemedText style={styles.sectionTitle}>Past Appointments</ThemedText>
+          {appointments.filter(apt => apt.status !== 'upcoming').length === 0 ? (
+            <ThemedText style={styles.emptyStateText}>
+              No past appointments. Book one to get started!
+            </ThemedText>
+          ) : (
+            <View style={styles.pastAppointmentsContainer}>
+              {appointments
+                .filter(apt => apt.status !== 'upcoming')
+                .map(renderAppointmentCard)}
             </View>
-            <TouchableOpacity style={styles.bookButton} onPress={() => setModalVisible(true)}>
-              <Ionicons name="calendar" size={16} color="#FFFFFF" />
-              <ThemedText style={styles.bookButtonText}>Book New Appointment</ThemedText>
-            </TouchableOpacity>
-          </View>
-
-          {/* Upcoming Appointments */}
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Upcoming Appointments</ThemedText>
-            
-            <View style={styles.row}>
-              {/* First Appointment Card */}
-              <View style={styles.appointmentCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.dateBadge}>
-                    <ThemedText style={styles.dateDay}>10</ThemedText>
-                    <ThemedText style={styles.dateMonth}>OCT</ThemedText>
-                  </View>
-                  <View style={styles.statusBadge}>
-                    <ThemedText style={styles.statusText}>pending</ThemedText>
-                  </View>
-                </View>
-                <ThemedText style={styles.appointmentTitle}>Urinalysis (Complete Urine Examination)</ThemedText>
-                <View style={styles.detailRow}>
-                  <Ionicons name="time-outline" size={14} color="#718096" />
-                  <ThemedText style={styles.detailText}>7:00 AM</ThemedText>
-                </View>
-                <View style={styles.detailRow}>
-                  <Ionicons name="location-outline" size={14} color="#718096" />
-                  <ThemedText style={styles.detailText}>MDLAB Direct - Main Branch</ThemedText>
-                </View>
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.rescheduleButton}>
-                    <ThemedText style={styles.rescheduleButtonText}>Reschedule</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelButton}>
-                    <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Second Appointment Card */}
-              <View style={styles.appointmentCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.dateBadge}>
-                    <ThemedText style={styles.dateDay}>07</ThemedText>
-                    <ThemedText style={styles.dateMonth}>OCT</ThemedText>
-                  </View>
-                  <View style={styles.statusBadge}>
-                    <ThemedText style={styles.statusText}>pending</ThemedText>
-                  </View>
-                </View>
-                <ThemedText style={styles.appointmentTitle}>Lipid Profile</ThemedText>
-                <View style={styles.detailRow}>
-                  <Ionicons name="time-outline" size={14} color="#718096" />
-                  <ThemedText style={styles.detailText}>13:00 AM</ThemedText>
-                </View>
-                <View style={styles.detailRow}>
-                  <Ionicons name="location-outline" size={14} color="#718096" />
-                  <ThemedText style={styles.detailText}>MDLAB Direct - Main Branch</ThemedText>
-                </View>
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.rescheduleButton}>
-                    <ThemedText style={styles.rescheduleButtonText}>Reschedule</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelButton}>
-                    <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* Third Appointment - Single Row */}
-            <View style={styles.appointmentCard}>
-              <View style={styles.cardHeader}>
-                <View style={styles.dateBadge}>
-                  <ThemedText style={styles.dateDay}>09</ThemedText>
-                  <ThemedText style={styles.dateMonth}>OCT</ThemedText>
-                </View>
-                <View style={styles.statusBadge}>
-                  <ThemedText style={styles.statusText}>pending</ThemedText>
-                </View>
-              </View>
-              <ThemedText style={styles.appointmentTitle}>Urinalysis (Complete Urine Examination)</ThemedText>
-              <View style={styles.detailRow}>
-                <Ionicons name="time-outline" size={14} color="#718096" />
-                <ThemedText style={styles.detailText}>7:00 AM</ThemedText>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="location-outline" size={14} color="#718096" />
-                <ThemedText style={styles.detailText}>MDLAB Direct - Main Branch</ThemedText>
-              </View>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.rescheduleButton}>
-                  <ThemedText style={styles.rescheduleButtonText}>Reschedule</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cancelButton}>
-                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Past Appointments */}
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Past Appointments</ThemedText>
-            
-            <View style={styles.pastCard}>
-              <View style={styles.pastCardContent}>
-                <ThemedText style={styles.pastTitle}>Urinalysis (Complete Urine Examination)</ThemedText>
-                <ThemedText style={styles.pastDetails}>October 3, 2025 • 7:00 AM • MDLAB Direct - Main Branch</ThemedText>
-              </View>
-              <View style={[styles.statusBadge, styles.cancelledBadge]}>
-                <ThemedText style={styles.statusText}>cancelled</ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.pastCard}>
-              <View style={styles.pastCardContent}>
-                <ThemedText style={styles.pastTitle}>X-Ray Chest (PA)</ThemedText>
-                <ThemedText style={styles.pastDetails}>October 2, 2025 • 7:00 AM • MDLAB Direct - Main Branch</ThemedText>
-              </View>
-              <View style={styles.statusBadge}>
-                <ThemedText style={styles.statusText}>pending</ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.pastCard}>
-              <View style={styles.pastCardContent}>
-                <ThemedText style={styles.pastTitle}>Urinalysis (Complete Urine Examination)</ThemedText>
-                <ThemedText style={styles.pastDetails}>September 30, 2025 • 7:00 AM • MDLAB Direct - Main Branch</ThemedText>
-              </View>
-              <View style={styles.statusBadge}>
-                <ThemedText style={styles.statusText}>pending</ThemedText>
-              </View>
-            </View>
-          </View>
+          )}
         </View>
       </ScrollView>
 
-      {/* Book Appointment Modal */}
+      {/* Booking Modal */}
       <Modal
         animationType="slide"
         transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        visible={isBookingModalVisible}
+        onRequestClose={() => setIsBookingModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>Book an Appointment</ThemedText>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#2D3748" />
+            <ThemedText style={styles.modalTitle}>Book New Appointment</ThemedText>
+            
+            {/* Test Selection */}
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.label}>Select Test</ThemedText>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowTestOptions(true)}
+              >
+                <ThemedText style={styles.selectedValueText}>{selectedTest}</ThemedText>
+                <Ionicons name="chevron-down" size={20} color="#1A202C" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Test Type */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.label}>Test Type</ThemedText>
-                <TouchableOpacity 
-                  style={styles.dropdownButton}
-                  onPress={() => setShowTestPicker(!showTestPicker)}
-                >
-                  <ThemedText style={[styles.dropdownText, !selectedTest && styles.placeholderText]}>
-                    {selectedTestLabel}
-                  </ThemedText>
-                  <Ionicons name={showTestPicker ? "chevron-up" : "chevron-down"} size={20} color="#718096" />
-                </TouchableOpacity>
-                {showTestPicker && (
-                  <View style={styles.dropdownList}>
-                    {tests.map((test) => (
-                      <TouchableOpacity
-                        key={test.value}
-                        style={styles.dropdownItem}
-                        onPress={() => selectTest(test)}
-                      >
-                        <ThemedText style={styles.dropdownItemText}>{test.label}</ThemedText>
-                        {selectedTest === test.value && (
-                          <Ionicons name="checkmark" size={20} color="#21AEA8" />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
+            {/* Date Selection */}
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.label}>Select Date</ThemedText>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <ThemedText style={styles.selectedValueText}>{selectedDate.toLocaleDateString()}</ThemedText>
+                <Ionicons name="calendar" size={20} color="#1A202C" />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                />
+              )}
+            </View>
 
-              {/* Calendar */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.label}>Select Date</ThemedText>
-                {renderCalendar()}
+            {/* Time Slot Selection */}
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.label}>Select Time Slot</ThemedText>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowTimeSlots(true)}
+              >
+                <ThemedText style={styles.selectedValueText}>{selectedTimeSlot.label}</ThemedText>
+                <Ionicons name="chevron-down" size={20} color="#1A202C" />
+              </TouchableOpacity>
+              
+              {/* Add this recommendation section */}
+              <View style={styles.recommendationContainer}>
+                <View style={styles.recommendationLine} />
+                <ThemedText style={styles.recommendationText}>
+                  {TEST_OPTIONS.find(test => test.name === selectedTest)?.note || 'Select a test to see recommendations'}
+                </ThemedText>
               </View>
+            </View>
 
-              {/* Time Schedule */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.label}>Select Time Schedule</ThemedText>
-                <TouchableOpacity 
-                  style={styles.dropdownButton}
-                  onPress={() => setShowSchedulePicker(!showSchedulePicker)}
-                >
-                  <ThemedText style={[styles.dropdownText, !selectedSchedule && styles.placeholderText]}>
-                    {selectedScheduleLabel}
-                  </ThemedText>
-                  <Ionicons name={showSchedulePicker ? "chevron-up" : "chevron-down"} size={20} color="#718096" />
-                </TouchableOpacity>
-                {showSchedulePicker && (
-                  <View style={styles.dropdownList}>
-                    {schedules.map((schedule) => (
-                      <TouchableOpacity
-                        key={schedule.value}
-                        style={styles.dropdownItem}
-                        onPress={() => selectSchedule(schedule)}
-                      >
-                        <ThemedText style={styles.dropdownItemText}>{schedule.label}</ThemedText>
-                        {selectedSchedule === schedule.value && (
-                          <Ionicons name="checkmark" size={20} color="#21AEA8" />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-                <View style={styles.infoBox}>
-                  <ThemedText style={styles.infoText}>
-                    Morning schedule is recommended for fasting blood tests. Afternoon schedule is for non-fasting tests or after meals.
-                  </ThemedText>
+            {/* Location Selection */}
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.label}>Select Laboratory</ThemedText>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowLocations(true)}
+              >
+                <View>
+                  <ThemedText style={styles.selectedValueText}>{selectedLocation.name}</ThemedText>
+                  <ThemedText style={styles.addressText}>{selectedLocation.address}</ThemedText>
                 </View>
-              </View>
+                <Ionicons name="chevron-down" size={20} color="#1A202C" />
+              </TouchableOpacity>
+            </View>
 
-              {/* Location */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.label}>Select Location</ThemedText>
-                <TouchableOpacity 
-                  style={styles.dropdownButton}
-                  onPress={() => setShowLocationPicker(!showLocationPicker)}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setIsBookingModalVisible(false)}
+              >
+                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleBookAppointment}
+              >
+                <ThemedText style={styles.confirmButtonText}>Book</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Test Options Modal */}
+      <Modal
+        visible={showTestOptions}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ThemedText style={styles.modalTitle}>Select Test</ThemedText>
+            <ScrollView style={styles.optionsList}>
+              {TEST_OPTIONS.map((test) => (
+                <TouchableOpacity
+                  key={test.name}
+                  style={styles.optionItem}
+                  onPress={() => handleTestSelect(test)}
                 >
-                  <ThemedText style={styles.dropdownText}>
-                    {selectedLocation}
-                  </ThemedText>
-                  <Ionicons name={showLocationPicker ? "chevron-up" : "chevron-down"} size={20} color="#718096" />
-                </TouchableOpacity>
-                {showLocationPicker && (
-                  <View style={styles.dropdownList}>
-                    {locations.map((location) => (
-                      <TouchableOpacity
-                        key={location}
-                        style={styles.dropdownItem}
-                        onPress={() => selectLocation(location)}
-                      >
-                        <ThemedText style={styles.dropdownItemText}>{location}</ThemedText>
-                        {selectedLocation === location && (
-                          <Ionicons name="checkmark" size={20} color="#21AEA8" />
-                        )}
-                      </TouchableOpacity>
-                    ))}
+                  <View style={styles.testOptionHeader}>
+                    <ThemedText style={styles.optionText}>{test.name}</ThemedText>
+                    <ThemedText style={styles.priceText}>₱{test.price}</ThemedText>
                   </View>
-                )}
-              </View>
-
-              {/* Action Buttons */}
-              <View style={styles.modalActions}>
-                <TouchableOpacity 
-                  style={styles.modalCancelButton}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
+                  <ThemedText style={styles.optionDescription}>{test.description}</ThemedText>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.modalBookButton}
-                  onPress={handleBookAppointment}
-                >
-                  <ThemedText style={styles.modalBookText}>Book Appointment</ThemedText>
-                </TouchableOpacity>
-              </View>
+              ))}
             </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setShowTestOptions(false)}
+            >
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time Slots Modal */}
+      <Modal
+        visible={showTimeSlots}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ThemedText style={styles.modalTitle}>Select Time Slot</ThemedText>
+            <ScrollView style={styles.optionsList}>
+              {TIME_SLOTS.map((slot) => (
+                <TouchableOpacity
+                  key={slot.id}
+                  style={styles.optionItem}
+                  onPress={() => {
+                    setSelectedTimeSlot(slot);
+                    setShowTimeSlots(false);
+                  }}
+                >
+                  <ThemedText style={styles.optionText}>{slot.label}</ThemedText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setShowTimeSlots(false)}
+            >
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Location Modal */}
+      <Modal
+        visible={showLocations}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ThemedText style={styles.modalTitle}>Select Laboratory</ThemedText>
+            <ScrollView style={styles.optionsList}>
+              {LAB_LOCATIONS.map((location) => (
+                <TouchableOpacity
+                  key={location.id}
+                  style={styles.locationItem}
+                  onPress={() => handleLocationSelect(location)}
+                >
+                  <ThemedText style={styles.locationName}>{location.name}</ThemedText>
+                  <ThemedText style={styles.locationAddress}>{location.address}</ThemedText>
+                  <View style={styles.availableTests}>
+                    <ThemedText style={styles.availableTestsLabel}>Available Tests:</ThemedText>
+                    <ThemedText style={styles.availableTestsList}>
+                      {location.availableTests.join(', ')}
+                    </ThemedText>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setShowLocations(false)}
+            >
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reschedule Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ThemedText style={styles.modalTitle}>Reschedule Appointment</ThemedText>
+            <View style={styles.datePickerContainer}>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <ThemedText style={styles.selectedValueText}>
+                  {selectedDate.toLocaleDateString()}
+                </ThemedText>
+                <Ionicons name="calendar" size={20} color="#1A202C" />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                  themeVariant="light"
+                  textColor="#1A202C"
+                  style={{ backgroundColor: '#FFFFFF' }}
+                />
+              )}
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setIsModalVisible(false)}
+              >
+                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={confirmReschedule}
+              >
+                <ThemedText style={styles.confirmButtonText}>Confirm</ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -488,404 +509,311 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#E8F5F3',
   },
-  content: {
-    flex: 1,
-  },
   header: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2D3748',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#718096',
-  },
-  mainContent: {
-    padding: 20,
-  },
-  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    elevation: 4,
   },
-  pageTitle: {
-    fontSize: 24,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#2D3748',
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 14,
-    color: '#718096',
+    color: '#1A202C', // Darker header title
   },
   bookButton: {
-    backgroundColor: '#21AEA8',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    backgroundColor: '#21AEA8',
     paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    gap: 6,
   },
   bookButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 8,
   },
   section: {
-    marginBottom: 24,
+    padding: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#2D3748',
     marginBottom: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    color: '#1A202C', // Darker section title
   },
   appointmentCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    flex: 1,
-    borderLeftWidth: 4,
-    borderLeftColor: '#21AEA8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  cardHeader: {
+  appointmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  dateBadge: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#21AEA8',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
-  dateDay: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#21AEA8',
-    lineHeight: 28,
-  },
-  dateMonth: {
-    fontSize: 12,
+  testName: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#21AEA8',
+    color: '#1A202C', // Darker test name color
   },
   statusBadge: {
-    backgroundColor: '#21AEA8',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  cancelledBadge: {
-    backgroundColor: '#48BB78',
-  },
   statusText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
   },
-  appointmentTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2D3748',
-    marginBottom: 8,
+  appointmentDetails: {
+    gap: 8,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
-    gap: 6,
+    gap: 8,
   },
   detailText: {
-    fontSize: 13,
-    color: '#718096',
+    color: '#4A5568', // Darker detail text
+    fontSize: 14,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    justifyContent: 'flex-end',
+    marginTop: 16,
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    gap: 4,
   },
   rescheduleButton: {
-    flex: 1,
-    backgroundColor: '#4299E1',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  rescheduleButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
+    backgroundColor: '#E6FFFD',
   },
   cancelButton: {
-    flex: 1,
-    backgroundColor: '#F56565',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
   },
-  cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  pastCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  pastCardContent: {
-    flex: 1,
-    marginRight: 12,
-  },
-  pastTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+  rescheduleText: {
     color: '#21AEA8',
-    marginBottom: 4,
+    fontSize: 14,
   },
-  pastDetails: {
-    fontSize: 12,
-    color: '#718096',
+  cancelText: {
+    color: '#E53E3E',
+    fontSize: 14,
   },
-  // Modal Styles
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    width: '100%',
-    maxWidth: 600,
-    maxHeight: '90%',
     padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    width: '90%',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#2D3748',
+    marginBottom: 20,
+    color: '#1A202C', // Darker title color
   },
   formGroup: {
-    marginBottom: 20,
+    width: '100%',
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2D3748',
+    color: '#1A202C', // Darker label color
     marginBottom: 8,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#CBD5E0',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  picker: {
-    height: 50,
-  },
-  dropdownButton: {
-    borderWidth: 1,
-    borderColor: '#CBD5E0',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  selectButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  dropdownText: {
-    fontSize: 14,
-    color: '#2D3748',
-    flex: 1,
-  },
-  placeholderText: {
-    color: '#A0AEC0',
-  },
-  dropdownList: {
-    backgroundColor: '#FFFFFF',
+    padding: 12,
     borderWidth: 1,
     borderColor: '#CBD5E0',
     borderRadius: 8,
-    marginTop: 4,
+    backgroundColor: '#F7FAFC', // Light background for contrast
+  },
+  selectedValueText: {
+    fontSize: 16,
+    color: '#1A202C', // Dark, visible text color
+    fontWeight: '500',
+  },
+  optionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    elevation: 2,
+    marginTop: 8,
+    width: '100%',
     maxHeight: 200,
-    overflow: 'scroll',
+    borderColor: '#CBD5E0',
+    borderWidth: 1,
   },
-  dropdownItem: {
+  optionButton: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderColor: '#EDF2F7',
+  },
+  selectedOption: {
+    backgroundColor: '#E6FFFD',
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#1A202C', // Darker text color
+    fontWeight: '500',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  modalCancelButton: {
+    backgroundColor: '#EDF2F7',
+  },
+  confirmButton: {
+    backgroundColor: '#21AEA8',
+  },
+  cancelButtonText: {
+    color: '#2D3748', // Darker cancel button text
+    fontSize: 14,
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  datePickerContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  optionsList: {
+    width: '100%',
+    maxHeight: 300,
+    backgroundColor: '#FFFFFF',
+  },
+  optionItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#CBD5E0', // Darker border
+    backgroundColor: '#FFFFFF',
+  },
+  testOptionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    marginBottom: 4,
   },
-  dropdownItemText: {
+  optionDescription: {
     fontSize: 14,
-    color: '#2D3748',
-    flex: 1,
+    color: '#4A5568',
+    marginTop: 4,
   },
-  infoBox: {
-    backgroundColor: '#EBF8FF',
+  priceText: {
+    fontSize: 16,
+    color: '#21AEA8',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#4A5568', // Darker address text
+    marginTop: 4,
+  },
+  locationItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDF2F7',
+    backgroundColor: '#FFFFFF',
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1A202C',
+  },
+  locationAddress: {
+    fontSize: 14,
+    color: '#4A5568',
+    marginTop: 4,
+  },
+  availableTests: {
+    marginTop: 8,
+  },
+  availableTestsLabel: {
+    fontSize: 12,
+    color: '#718096',
+  },
+  availableTestsList: {
+    fontSize: 14,
+    color: '#1A202C',
+    marginTop: 4,
+  },
+  emptyStateText: {
+    color: '#718096',
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  pastAppointmentsSection: {
+    backgroundColor: '#F7FAFC',
+    borderRadius: 16,
+    margin: 16,
+    marginTop: 0,
+  },
+  pastAppointmentsContainer: {
+    padding: 8,
+  },
+  recommendationContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F7FAFC',
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
+    alignItems: 'center',
   },
-  infoText: {
-    fontSize: 12,
-    color: '#2C5282',
-    fontStyle: 'italic',
-  },
-  // Calendar Styles
-  calendarContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#CBD5E0',
-  },
-  calendarHeader: {
+  recommendationLine: {
+    width: 4,
+    height: '100%',
     backgroundColor: '#21AEA8',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: 2,
+    marginRight: 12,
   },
-  monthNavButton: {
-    padding: 4,
-    minWidth: 30,
-    alignItems: 'center',
-  },
-  calendarMonth: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  recommendationText: {
     flex: 1,
-    textAlign: 'center',
-  },
-  calendar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 12,
-  },
-  calendarDay: {
-    width: '14.28%',
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 4,
-  },
-  dayHeader: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#718096',
-  },
-  emptyDay: {
     fontSize: 14,
-  },
-  dayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayText: {
-    fontSize: 14,
-    color: '#2D3748',
-  },
-  selectedDay: {
-    backgroundColor: '#21AEA8',
-  },
-  selectedDayText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  todayDay: {
-    backgroundColor: '#E0F2F1',
-  },
-  todayDayText: {
-    color: '#21AEA8',
-    fontWeight: '600',
-  },
-  // Modal Actions
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  modalCancelButton: {
-    flex: 1,
-    backgroundColor: '#E2E8F0',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    color: '#2D3748',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  modalBookButton: {
-    flex: 1,
-    backgroundColor: '#21AEA8',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalBookText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#4A5568',
+    lineHeight: 20,
   },
 });

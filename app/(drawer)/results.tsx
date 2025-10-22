@@ -1,10 +1,10 @@
-import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
-import { router } from 'expo-router';
 import { scheduleResultNotification } from '@/utils/notifications';
 import { generateTestResultPDF } from '@/utils/pdfGenerator';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function ResultsScreen() {
   const [selectedTestType, setSelectedTestType] = useState('all');
@@ -36,32 +36,7 @@ export default function ResultsScreen() {
   ];
 
   // Mock data - you can add sample results here or keep empty
-  const testResults: any[] = [
-    {
-      id: 1,
-      title: 'Complete Blood Count (CBC)',
-      date: 'September 28, 2025',
-      status: 'normal',
-      hasNotificationSent: true,
-      resultItems: [
-        { parameter: 'Hemoglobin', result: '14.5', unit: 'g/dL', normalRange: '13.0-17.0', status: 'normal' },
-        { parameter: 'White Blood Cell Count', result: '7.2', unit: 'x10^9/L', normalRange: '4.0-11.0', status: 'normal' },
-        { parameter: 'Platelet Count', result: '250', unit: 'x10^9/L', normalRange: '150-400', status: 'normal' },
-      ],
-    },
-    {
-      id: 2,
-      title: 'Lipid Profile',
-      date: 'September 15, 2025',
-      status: 'high',
-      hasNotificationSent: true,
-      resultItems: [
-        { parameter: 'Total Cholesterol', result: '220', unit: 'mg/dL', normalRange: '<200', status: 'high' },
-        { parameter: 'HDL Cholesterol', result: '45', unit: 'mg/dL', normalRange: '>40', status: 'normal' },
-        { parameter: 'LDL Cholesterol', result: '145', unit: 'mg/dL', normalRange: '<100', status: 'high' },
-      ],
-    },
-  ];
+  const testResults: any[] = [];
 
   // Simulate new result notification (you would call this when a new result is added)
   useEffect(() => {
@@ -235,8 +210,8 @@ export default function ResultsScreen() {
             </View>
           </View>
 
-          {/* Empty State */}
-          {testResults.length === 0 && (
+          {/* Results List - for when there are results */}
+          {testResults.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconContainer}>
                 <Ionicons name="document-text-outline" size={80} color="#CBD5E0" />
@@ -245,14 +220,14 @@ export default function ResultsScreen() {
               <ThemedText style={styles.emptyMessage}>
                 No test results match your current filters, or you haven't had any tests yet.
               </ThemedText>
-              <TouchableOpacity style={styles.bookTestButton} onPress={handleBookTest}>
+              <TouchableOpacity 
+                style={styles.bookTestButton}
+                onPress={() => router.push('/(drawer)/appointments')}
+              >
                 <ThemedText style={styles.bookTestButtonText}>Book a Test</ThemedText>
               </TouchableOpacity>
             </View>
-          )}
-
-          {/* Results List - for when there are results */}
-          {testResults.length > 0 && (
+          ) : (
             <View style={styles.resultsList}>
               {testResults.map((result: any, index: number) => (
                 <View key={index} style={styles.resultCard}>
