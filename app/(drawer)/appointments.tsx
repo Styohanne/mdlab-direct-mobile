@@ -107,7 +107,35 @@ export default function AppointmentsScreen() {
       status: 'upcoming',
       location: selectedLocation.name
     });
-    setIsBookingModalVisible(false);
+
+    Alert.alert(
+      'Appointment Booked',
+      'Would you like to book another appointment?',
+      [
+        {
+          text: 'No',
+          onPress: () => {
+            setIsBookingModalVisible(false);
+            // Reset form fields
+            setSelectedTest(TEST_OPTIONS[0].name);
+            setSelectedDate(new Date());
+            setSelectedTimeSlot(TIME_SLOTS[0]);
+            setSelectedLocation(LAB_LOCATIONS[0]);
+          },
+          style: 'cancel'
+        },
+        {
+          text: 'Yes',
+          onPress: () => {
+            // Reset form fields but keep modal open
+            setSelectedTest(TEST_OPTIONS[0].name);
+            setSelectedDate(new Date());
+            setSelectedTimeSlot(TIME_SLOTS[0]);
+            setSelectedLocation(LAB_LOCATIONS[0]);
+          }
+        }
+      ]
+    );
   };
 
   const handleReschedule = (appointment: Appointment) => {
