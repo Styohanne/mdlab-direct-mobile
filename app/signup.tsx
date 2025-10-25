@@ -1,10 +1,10 @@
-import { StyleSheet, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { authAPI } from '../services/api';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -14,6 +14,78 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSignUp = async () => {
+    // Basic validation
+    if (!fullName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Split full name into first and last name
+      const nameParts = fullName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || firstName;
+
+      // Generate username from email
+      const username = email.split('@')[0];
+
+      const response = await authAPI.register({
+        firstName,
+        lastName,
+        email: email.trim().toLowerCase(),
+        username,
+        passwordHash: password, // API expects this field name
+      });
+
+      if (response.success && response.data?.user) {
+        Alert.alert(
+          'Registration Successful',
+          'Your account has been created successfully! You can now log in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/login')
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Registration Failed', 
+          response.message || 'Unable to create account. Please try again.'
+        );
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      Alert.alert(
+        'Registration Error',
+        'Unable to connect to server. Please check your internet connection and try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -101,8 +173,17 @@ export default function SignUpScreen() {
           </View>
 
           {/* Sign Up Button */}
-          <TouchableOpacity style={styles.signUpButton} activeOpacity={0.8}>
-            <ThemedText style={styles.signUpButtonText}>Sign Up</ThemedText>
+          <TouchableOpacity 
+            style={[styles.signUpButton, isLoading && styles.disabledButton]} 
+            activeOpacity={0.8}
+            onPress={handleSignUp}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <ThemedText style={styles.signUpButtonText}>Sign Up</ThemedText>
+            )}
           </TouchableOpacity>
 
           {/* Divider */}
@@ -211,6 +292,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: '#94A3B8',
   },
   dividerContainer: {
     flexDirection: 'row',

@@ -1,24 +1,33 @@
 import { ThemedText } from '@/components/themed-text';
-import { useAppointmentStore } from '@/utils/appointments';
+import { useAuth } from '@/contexts/AuthContext';
+import { appointmentAPI, authUtils, testResultsAPI } from '@/services/api';
 import {
-  addNotificationReceivedListener,
-  addNotificationResponseReceivedListener,
-  registerForPushNotificationsAsync
+    addNotificationReceivedListener,
+    addNotificationResponseReceivedListener,
+    registerForPushNotificationsAsync
 } from '@/utils/notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
-import { Image } from 'expo-image';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { user, logout } = useAuth();
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
-  const { appointments } = useAppointmentStore();
+  
+  // Dashboard data state
+  const [dashboardData, setDashboardData] = useState({
+    upcomingAppointments: 0,
+    pastAppointments: 0,
+    totalAppointments: 0,
+    newResults: 0,
+    isLoading: true
+  });
 
   useEffect(() => {
     // Register for push notifications
@@ -49,8 +58,110 @@ export default function DashboardScreen() {
     };
   }, []);
 
-  const handleLogout = () => {
-    router.replace('/(tabs)');
+  // Fetch dashboard data
+  useEffect(() => {
+    console.log('📊 Dashboard: useEffect triggered, user:', user);
+    if (user) {
+      console.log('📊 Dashboard: User exists, fetching data...');
+      fetchDashboardData();
+    } else {
+      console.log('📊 Dashboard: No user found, skipping data fetch');
+    }
+  }, [user]);
+
+  // Also fetch data on component mount
+  useEffect(() => {
+    console.log('📊 Dashboard: Component mounted, checking for data fetch...');
+    if (user) {
+      console.log('📊 Dashboard: User available on mount, fetching data...');
+      fetchDashboardData();
+    }
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      console.log('📊 Dashboard: Starting data fetch...');
+      console.log('📊 Dashboard: Current user:', user);
+      
+      setDashboardData(prev => ({ ...prev, isLoading: true }));
+
+      // Test backend connection first
+      console.log('📊 Dashboard: Testing backend connection...');
+      const connectionTest = await authUtils.testConnection();
+      console.log('📊 Dashboard: Connection test result:', connectionTest);
+      
+      if (!connectionTest.success) {
+        console.error('📊 Dashboard: Backend connection failed:', connectionTest.message);
+        setDashboardData(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
+
+      // Fetch appointments
+      console.log('📊 Dashboard: Fetching appointments for user:', user?._id || user?.id);
+      const appointmentsResponse = await appointmentAPI.getAppointments({
+        patientId: user?._id || user?.id
+      });
+      console.log('📊 Dashboard: Appointments response:', appointmentsResponse);
+
+      // Fetch test results
+      console.log('📊 Dashboard: Fetching test results...');
+      const resultsResponse = await testResultsAPI.getMyTestResults();
+      console.log('📊 Dashboard: Test results response:', resultsResponse);
+
+      let upcomingCount = 0;
+      let pastCount = 0;
+      let totalCount = 0;
+      let newResultsCount = 0;
+
+      if (appointmentsResponse.success && appointmentsResponse.data?.data) {
+        const appointments = appointmentsResponse.data.data;
+        totalCount = appointments.length;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        appointments.forEach((apt: any) => {
+          const appointmentDate = new Date(apt.appointmentDate);
+          appointmentDate.setHours(0, 0, 0, 0);
+          
+          if (appointmentDate >= today && !['cancelled', 'completed', 'no-show'].includes(apt.status)) {
+            upcomingCount++;
+          } else {
+            pastCount++;
+          }
+        });
+      }
+
+      if (resultsResponse.success && resultsResponse.data?.data) {
+        const results = resultsResponse.data.data;
+        newResultsCount = results.filter((result: any) => result.isNew).length;
+      }
+
+      const finalData = {
+        upcomingAppointments: upcomingCount,
+        pastAppointments: pastCount,
+        totalAppointments: totalCount,
+        newResults: newResultsCount,
+        isLoading: false
+      };
+
+      console.log('📊 Dashboard: Final dashboard data:', finalData);
+      setDashboardData(finalData);
+
+    } catch (error) {
+      console.error('📊 Dashboard: Error fetching data:', error);
+      setDashboardData(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Logout error:', error);
+      router.replace('/(tabs)');
+    }
   };
 
   // Update the navigation handler
@@ -67,12 +178,9 @@ export default function DashboardScreen() {
     }
   };
 
-  const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming').length;
-  const pastAppointments = appointments.filter(apt => apt.status !== 'upcoming').length;
-  const totalAppointments = appointments.length;
-
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor="#21AEA8" barStyle="light-content" />
       {/* Navbar */}
       <View style={styles.navbar}>
         <View style={styles.navbarLeft}>
@@ -82,25 +190,21 @@ export default function DashboardScreen() {
           >
             <Ionicons name="menu" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Image
-            source={require('@/assets/images/mdlab-navbar.png')}
-            style={styles.navbarLogo}
-            contentFit="contain"
-          />
-          <View style={styles.navbarTitle}>
-            <ThemedText style={styles.navbarMainTitle}>MDLAB DIRECT</ThemedText>
-            <ThemedText style={styles.navbarSubtitle}>Patient Portal</ThemedText>
+          <View style={styles.userInfo}>
+            <ThemedText style={styles.userName}>
+              {user?.firstName && user?.lastName 
+                ? `${user.firstName} ${user.lastName}` 
+                : user?.username || 'Patient'
+              }
+            </ThemedText>
+            <ThemedText style={styles.userRole}>Patient</ThemedText>
           </View>
         </View>
         <View style={styles.navbarRight}>
-          <View style={styles.userInfo}>
-            <View style={styles.userAvatar}>
-              <ThemedText style={styles.avatarText}>R</ThemedText>
-            </View>
-            <View>
-              <ThemedText style={styles.userName}>Renz Ramos</ThemedText>
-              <ThemedText style={styles.userRole}>Patient</ThemedText>
-            </View>
+          <View style={styles.userAvatar}>
+            <ThemedText style={styles.avatarText}>
+              {user?.firstName?.charAt(0) || user?.username?.charAt(0) || 'P'}
+            </ThemedText>
           </View>
           <TouchableOpacity 
             style={styles.logoutButton}
@@ -112,34 +216,43 @@ export default function DashboardScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Dashboard Header */}
-        <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Dashboard Overview</ThemedText>
-          <ThemedText style={styles.headerSubtitle}>Welcome to your health dashboard</ThemedText>
-        </View>
 
-        {/* Welcome Card */}
+        {/* Stats Card */}
         <View style={styles.welcomeCard}>
           <View style={styles.welcomeContent}>
-            <ThemedText style={styles.welcomeTitle}>Welcome back, Renz!</ThemedText>
-            <ThemedText style={styles.welcomeText}>
-              Here's a quick overview of your health journey with MDLAB Direct
+            <ThemedText style={styles.welcomeTitle}>
+              Welcome back, {user?.firstName || user?.username || 'Patient'}!
             </ThemedText>
+            <TouchableOpacity 
+              style={styles.refreshButton}
+              onPress={fetchDashboardData}
+            >
+              <Ionicons name="refresh" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.refreshText}>Refresh</ThemedText>
+            </TouchableOpacity>
           </View>
-          <View style={styles.statsContainer}>
-            <View style={styles.statBox}>
-              <ThemedText style={styles.statNumber}>{upcomingAppointments}</ThemedText>
-              <ThemedText style={styles.statLabel}>Upcoming{'\n'}Appointments</ThemedText>
+          
+          {dashboardData.isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ThemedText style={styles.loadingText}>Loading dashboard...</ThemedText>
             </View>
-            <View style={styles.statBox}>
-              <ThemedText style={styles.statNumber}>{pastAppointments}</ThemedText>
-              <ThemedText style={styles.statLabel}>Past{'\n'}Appointments</ThemedText>
+          ) : (
+            <View style={styles.statsContainer}>
+              <View style={styles.statBox}>
+                <ThemedText style={styles.statNumber}>{dashboardData.upcomingAppointments}</ThemedText>
+                <ThemedText style={styles.statLabel}>Upcoming{'\n'}Appointments</ThemedText>
+              </View>
+              <View style={styles.statBox}>
+                <ThemedText style={styles.statNumber}>{dashboardData.pastAppointments}</ThemedText>
+                <ThemedText style={styles.statLabel}>Past{'\n'}Appointments</ThemedText>
+              </View>
+              <View style={styles.statBox}>
+                <ThemedText style={styles.statNumber}>{dashboardData.totalAppointments}</ThemedText>
+                <ThemedText style={styles.statLabel}>Total{'\n'}Appointments</ThemedText>
+              </View>
             </View>
-            <View style={styles.statBox}>
-              <ThemedText style={styles.statNumber}>{totalAppointments}</ThemedText>
-              <ThemedText style={styles.statLabel}>Total{'\n'}Appointments</ThemedText>
-            </View>
-          </View>
+          )}
         </View>
 
         {/* Quick Actions */}
@@ -223,41 +336,27 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8F5F3',
+    backgroundColor: '#21AEA8', // Match navbar color to eliminate white line
+    paddingTop: 0,
   },
   navbar: {
     backgroundColor: '#21AEA8',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 50, // Increased to push content down from very top
+    paddingBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 0,
   },
   navbarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   menuButton: {
     padding: 8,
-    marginRight: 8,
-  },
-  navbarLogo: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-  },
-  navbarTitle: {
-    justifyContent: 'center',
-  },
-  navbarMainTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  navbarSubtitle: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    opacity: 0.9,
+    marginRight: 16,
   },
   navbarRight: {
     flexDirection: 'row',
@@ -265,9 +364,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginLeft: 16,
   },
   userAvatar: {
     width: 36,
@@ -284,12 +383,12 @@ const styles = StyleSheet.create({
   },
   userName: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   userRole: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 12,
     opacity: 0.9,
   },
   logoutButton: {
@@ -297,6 +396,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    backgroundColor: '#E8F5F3', // Light background for content area
+    paddingTop: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   header: {
     backgroundColor: '#FFFFFF',
@@ -322,12 +425,31 @@ const styles = StyleSheet.create({
   },
   welcomeContent: {
     marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   welcomeTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
+    flex: 1,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginLeft: 12,
+  },
+  refreshText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   welcomeText: {
     fontSize: 14,
@@ -437,5 +559,17 @@ const styles = StyleSheet.create({
   activityDate: {
     fontSize: 12,
     color: '#718096',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    opacity: 0.9,
   },
 });

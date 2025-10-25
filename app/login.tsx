@@ -1,111 +1,188 @@
-import { StyleSheet, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { authAPI, authUtils } from '../services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  const handleSignIn = () => {
-    // Simple authentication check
-    if (email === 'patient' && password === 'patient') {
-      router.replace('/(drawer)/dashboard');
+  const testBackendConnection = async () => {
+    console.log('🔗 Testing backend connection...');
+    const result = await authUtils.testConnection();
+    if (!result.success) {
+      setConnectionError(result.message);
+      console.error('🔗 Connection test failed:', result.message);
     } else {
-      alert('Invalid credentials. Please use:\nEmail: patient\nPassword: patient');
+      setConnectionError(null);
+      console.log('🔗 Connection test successful');
+    }
+    return result.success;
+  };
+
+  const handleSignIn = async () => {
+    // Basic validation
+    if (!username.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please enter both username and password');
+      return;
+    }
+
+    setIsLoading(true);
+    setConnectionError(null);
+    
+    try {
+      // First test if we can reach the backend
+      const connectionOk = await testBackendConnection();
+      if (!connectionOk) {
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await authAPI.login({
+        identifier: username.trim(),
+        password: password
+      });
+
+      if (response.success && response.data?.user) {
+        console.log('✅ Login successful:', response.data.user);
+        
+        // Check if user is a patient
+        if (response.data.user.role !== 'patient') {
+          Alert.alert(
+            'Access Denied', 
+            'This app is only for patients. Please use the web portal for staff access.',
+            [{ text: 'OK' }]
+          );
+          await authAPI.logout(); // Clear any stored credentials
+          setIsLoading(false);
+          return;
+        }
+
+        // Navigate to dashboard
+        router.replace('/(drawer)/dashboard');
+      } else {
+        Alert.alert('Login Failed', response.message || 'Invalid username or password');
+      }
+    } catch (error: any) {
+      console.error('❌ Login error:', error);
+      Alert.alert(
+        'Connection Error', 
+        'Unable to connect to the server. Please check your internet connection and try again.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Navbar */}
-      <View style={styles.navbar}>
-        <Image
-          source={require('@/assets/images/mdlab-navbar.png')}
-          style={styles.navbarLogo}
-          contentFit="contain"
-        />
-      </View>
-
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Login Content */}
-        <View style={styles.content}>
-          <ThemedText style={styles.title}>Login</ThemedText>
-          <ThemedText style={styles.subtitle}>Please Sign in to continue.</ThemedText>
-
-          {/* Email Input */}
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          {/* Password Input */}
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Password"
-              placeholderTextColor="#999"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity 
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons 
-                name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
-                size={24} 
-                color="#666" 
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Sign In Button */}
-          <TouchableOpacity 
-            style={styles.signInButton} 
-            activeOpacity={0.8}
-            onPress={handleSignIn}
-          >
-            <ThemedText style={styles.signInButtonText}>Sign In</ThemedText>
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <ThemedText style={styles.dividerText}>or</ThemedText>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Google Sign In Button */}
-          <TouchableOpacity style={styles.googleButton} activeOpacity={0.8}>
+        {/* Main Content */}
+        <View style={styles.mainContent}>
+          {/* Centered Logo */}
+          <View style={styles.logoContainer}>
             <Image
-              source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }}
-              style={styles.googleIcon}
+              source={require('@/assets/images/mdlab-navbar.png')}
+              style={styles.centerLogo}
               contentFit="contain"
             />
-            <ThemedText style={styles.googleButtonText}>Sign in with Google</ThemedText>
-          </TouchableOpacity>
+          </View>
 
-          {/* Sign Up Link */}
-          <View style={styles.signUpContainer}>
-            <ThemedText style={styles.signUpText}>Don't have an account? </ThemedText>
-            <TouchableOpacity onPress={() => router.replace('/signup')}>
-              <ThemedText style={styles.signUpLink}>Sign up</ThemedText>
+          {/* Login Form */}
+          <View style={styles.loginForm}>
+            <ThemedText style={styles.title}>LOGIN</ThemedText>
+
+            {/* Connection Error Display */}
+            {connectionError && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="warning-outline" size={16} color="#FF4444" />
+                <ThemedText style={styles.errorText}>{connectionError}</ThemedText>
+              </View>
+            )}
+
+            {/* Username Input */}
+            <TextInput
+              style={styles.input}
+              placeholder="Username or Email"
+              placeholderTextColor="#999"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+            />
+
+            {/* Password Input */}
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Password"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity 
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons 
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                  size={24} 
+                  color="#666" 
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Remember Me and Forgot Password */}
+            <View style={styles.optionsContainer}>
+              <TouchableOpacity 
+                style={styles.rememberMeContainer}
+                onPress={() => setRememberMe(!rememberMe)}
+              >
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && (
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  )}
+                </View>
+                <ThemedText style={styles.rememberMeText}>Remember me</ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity onPress={() => {/* Handle forgot password */}}>
+                <ThemedText style={styles.forgotPasswordText}>Forgot password?</ThemedText>
+              </TouchableOpacity>
+            </View>
+
+            {/* Sign In Button */}
+            <TouchableOpacity 
+              style={[styles.signInButton, isLoading && styles.disabledButton]} 
+              activeOpacity={0.8}
+              onPress={handleSignIn}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <ThemedText style={styles.signInButtonText}>LOGIN</ThemedText>
+              )}
             </TouchableOpacity>
+
+            {/* Sign Up Link */}
+            <View style={styles.signUpContainer}>
+              <ThemedText style={styles.signUpText}>Don't have an account? </ThemedText>
+              <TouchableOpacity onPress={() => router.replace('/signup')}>
+                <ThemedText style={styles.signUpLink}>Sign Up</ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -116,119 +193,171 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  navbar: {
-    backgroundColor: '#21AEA8',
-    height: 60,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  navbarLogo: {
-    width: 45,
-    height: 45,
+    backgroundColor: '#21AEA8', // Teal gradient background like web
   },
   scrollContent: {
     flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 30,
-    paddingTop: 30,
-    paddingBottom: 20,
+  mainContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100%',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  centerLogo: {
+    width: 150,
+    height: 150,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 75,
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  loginForm: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
+    color: '#333',
+    textAlign: 'center',
     marginBottom: 30,
+    letterSpacing: 1,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF4444',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#FF4444',
+    marginLeft: 8,
+    flex: 1,
   },
   input: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
     marginBottom: 16,
-    color: '#000',
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#E1E5E9',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
     marginBottom: 16,
     paddingRight: 12,
+    borderWidth: 1,
+    borderColor: '#E1E5E9',
   },
   passwordInput: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
-    color: '#000',
+    color: '#333',
   },
   eyeIcon: {
     padding: 8,
   },
+  optionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#21AEA8',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  checkboxChecked: {
+    backgroundColor: '#21AEA8',
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: '#21AEA8',
+    fontWeight: '500',
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#21AEA8',
+    fontWeight: '500',
+  },
   signInButton: {
     backgroundColor: '#21AEA8',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 8,
     marginBottom: 25,
+    shadowColor: '#21AEA8',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   signInButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#DDD',
-  },
-  dividerText: {
-    color: '#999',
-    paddingHorizontal: 15,
-    fontSize: 14,
-  },
-  googleButton: {
-    backgroundColor: '#21AEA8',
-    borderRadius: 12,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 25,
-  },
-  googleIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 12,
-  },
-  googleButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    letterSpacing: 1,
+  },
+  disabledButton: {
+    backgroundColor: '#94A3B8',
+    shadowOpacity: 0,
   },
   signUpContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 30,
   },
   signUpText: {
     color: '#666',
