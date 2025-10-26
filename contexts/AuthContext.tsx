@@ -36,31 +36,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
+      console.log('🔐 AuthContext: Checking authentication status...');
       const authenticated = await authUtils.isAuthenticated();
+      console.log('🔐 AuthContext: Is authenticated:', authenticated);
       
       if (authenticated) {
         const storedUser = await authUtils.getStoredUser();
+        console.log('🔐 AuthContext: Stored user:', storedUser);
         if (storedUser) {
           setUser(storedUser);
           setIsAuthenticated(true);
+          console.log('🔐 AuthContext: User authenticated successfully');
           
           // Try to refresh user data from server
           try {
             const response = await authAPI.getCurrentUser();
             if (response.success && response.data?.user) {
+              console.log('🔐 AuthContext: User data refreshed from server');
               setUser(response.data.user);
             }
           } catch (error) {
-            console.log('Failed to refresh user data, using stored data');
+            console.log('🔐 AuthContext: Failed to refresh user data, using stored data', error);
           }
         }
+      } else {
+        console.log('🔐 AuthContext: User not authenticated');
       }
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error('🔐 AuthContext: Error checking auth status:', error);
       setIsAuthenticated(false);
       setUser(null);
     } finally {
       setIsLoading(false);
+      console.log('🔐 AuthContext: Auth check completed');
     }
   };
 
@@ -120,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authAPI.register({
         ...userData,
-        passwordHash: userData.password
+        password: userData.password // Fixed: use 'password' instead of 'passwordHash'
       });
 
       if (response.success) {

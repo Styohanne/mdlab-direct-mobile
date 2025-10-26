@@ -2,9 +2,9 @@ import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/contexts/AuthContext';
 import { appointmentAPI, authUtils, testResultsAPI } from '@/services/api';
 import {
-    addNotificationReceivedListener,
-    addNotificationResponseReceivedListener,
-    registerForPushNotificationsAsync
+  addNotificationReceivedListener,
+  addNotificationResponseReceivedListener,
+  registerForPushNotificationsAsync
 } from '@/utils/notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
@@ -82,20 +82,32 @@ export default function DashboardScreen() {
     try {
       console.log('📊 Dashboard: Starting data fetch...');
       console.log('📊 Dashboard: Current user:', user);
+      console.log('📊 Dashboard: API Base URL:', 'http://192.168.1.112:5000/api');
+      
+      // Check if we have authentication data
+      const token = await authUtils.getStoredToken();
+      console.log('📊 Dashboard: Stored token exists:', !!token);
+      console.log('📊 Dashboard: Token preview:', token ? token.substring(0, 20) + '...' : 'None');
       
       setDashboardData(prev => ({ ...prev, isLoading: true }));
 
-      // Test backend connection first
-      console.log('📊 Dashboard: Testing backend connection...');
-      const connectionTest = await authUtils.testConnection();
-      console.log('📊 Dashboard: Connection test result:', connectionTest);
-      
-      if (!connectionTest.success) {
-        console.error('📊 Dashboard: Backend connection failed:', connectionTest.message);
-        setDashboardData(prev => ({ ...prev, isLoading: false }));
-        return;
+      // Test basic API connectivity first
+      console.log('📊 Dashboard: Testing basic API connectivity...');
+      try {
+        const testResponse = await fetch('http://192.168.1.112:5000/api/health');
+        console.log('📊 Dashboard: Health check response status:', testResponse.status);
+        if (testResponse.ok) {
+          const healthData = await testResponse.json();
+          console.log('📊 Dashboard: Health check data:', healthData);
+          console.log('📊 Dashboard: ✅ Backend is reachable');
+        } else {
+          console.log('📊 Dashboard: ❌ Backend health check failed with status:', testResponse.status);
+        }
+      } catch (healthError) {
+        console.error('📊 Dashboard: ❌ Backend connection failed:', healthError);
+        console.error('📊 Dashboard: This suggests network connectivity issues');
       }
-
+      
       // Fetch appointments
       console.log('📊 Dashboard: Fetching appointments for user:', user?._id || user?.id);
       const appointmentsResponse = await appointmentAPI.getAppointments({
@@ -148,8 +160,14 @@ export default function DashboardScreen() {
       console.log('📊 Dashboard: Final dashboard data:', finalData);
       setDashboardData(finalData);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('📊 Dashboard: Error fetching data:', error);
+      console.error('📊 Dashboard: Error details:', {
+        message: error?.message,
+        code: error?.code,
+        response: error?.response?.data,
+        status: error?.response?.status
+      });
       setDashboardData(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -223,13 +241,35 @@ export default function DashboardScreen() {
             <ThemedText style={styles.welcomeTitle}>
               Welcome back, {user?.firstName || user?.username || 'Patient'}!
             </ThemedText>
-            <TouchableOpacity 
-              style={styles.refreshButton}
-              onPress={fetchDashboardData}
-            >
-              <Ionicons name="refresh" size={16} color="#FFFFFF" />
-              <ThemedText style={styles.refreshText}>Refresh</ThemedText>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity 
+                style={styles.refreshButton}
+                onPress={fetchDashboardData}
+              >
+                <Ionicons name="refresh" size={16} color="#FFFFFF" />
+                <ThemedText style={styles.refreshText}>Refresh</ThemedText>
+              </TouchableOpacity>
+              {__DEV__ && (
+                <TouchableOpacity 
+                  style={[styles.refreshButton, { backgroundColor: 'rgba(255, 255, 255, 0.3)' }]}
+                  onPress={async () => {
+                    console.log('🔧 Debug: Testing API connection...');
+                    try {
+                      const response = await fetch('http://192.168.1.112:5000/api/health');
+                      const data = await response.json();
+                      console.log('🔧 Debug: API Response:', data);
+                      alert(`API Status: ${data.success ? 'Connected' : 'Failed'}`);
+                    } catch (error: any) {
+                      console.error('🔧 Debug: API Test Failed:', error);
+                      alert(`API Test Failed: ${error?.message || 'Unknown error'}`);
+                    }
+                  }}
+                >
+                  <Ionicons name="bug" size={16} color="#FFFFFF" />
+                  <ThemedText style={styles.refreshText}>Test</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
           
           {dashboardData.isLoading ? (

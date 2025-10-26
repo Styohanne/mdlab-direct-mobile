@@ -1,8 +1,9 @@
+import AppHeader from '@/components/app-header';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Platform, SafeAreaView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -64,13 +65,17 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>My Profile</ThemedText>
-          <ThemedText style={styles.headerSubtitle}>Manage your personal information</ThemedText>
+      <StatusBar backgroundColor="#21AEA8" barStyle="light-content" />
+      <AppHeader />
+      
+      <View style={styles.content}>
+        <View style={styles.pageHeader}>
+          <ThemedText style={styles.pageTitle}>My Profile</ThemedText>
+          <ThemedText style={styles.pageSubtitle}>Manage your personal information</ThemedText>
         </View>
 
-        <View style={styles.mainContent}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.mainContent}>
           <View style={styles.titleRow}>
             <View style={styles.titleContainer}>
               <ThemedText style={styles.title}>Patient</ThemedText>
@@ -216,6 +221,7 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScrollView>
+      </View>
 
       {/* Add the Edit Modal */}
       <Modal
@@ -288,6 +294,22 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  pageHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+    backgroundColor: '#E8F5F3',
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    color: '#718096',
   },
   header: {
     backgroundColor: '#FFFFFF',

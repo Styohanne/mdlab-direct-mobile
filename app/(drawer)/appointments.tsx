@@ -1,52 +1,72 @@
+import AppHeader from '@/components/app-header';
+import TestSelectionModal from '@/components/TestSelectionModalNew';
 import { ThemedText } from '@/components/themed-text';
+import { useAuth } from '@/contexts/AuthContext';
+import { appointmentAPI, servicesAPI } from '@/services/api';
 import { Appointment, useAppointmentStore } from '@/utils/appointments';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Alert,
-  Modal, Platform, SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    Alert,
+    Modal, Platform, SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 const TEST_OPTIONS = [
   { 
-    name: 'Urinalysis', 
-    recommendedTime: 'morning',
-    note: 'Best taken in the morning for accurate results',
-    price: 200,
-    description: 'Complete Urine Examination'
+    _id: '1',
+    serviceName: 'Complete Blood Count (CBC)', 
+    category: 'hematology',
+    price: 280,
+    description: 'Complete blood count with differential',
+    preparationInstructions: 'No special preparation required',
+    duration: '20 minutes',
+    isActive: true
   },
   { 
-    name: 'X-Ray Chest (PA)', 
-    recommendedTime: 'any',
-    note: 'Can be done any time of day',
-    price: 600,
-    description: 'Posterior-Anterior Chest X-Ray'
-  },
-  { 
-    name: 'Fasting Blood Sugar', 
-    recommendedTime: 'morning',
-    note: 'Must be taken while fasting for 8-12 hours',
+    _id: '2',
+    serviceName: 'Fasting Blood Sugar (FBS)', 
+    category: 'clinical_chemistry',
     price: 150,
-    description: 'FBS Test'
+    description: 'Fasting glucose level test',
+    preparationInstructions: 'Must be taken while fasting for 8-12 hours',
+    duration: '2-4 hours',
+    isActive: true
   },
   { 
-    name: 'Lipid Profile', 
-    recommendedTime: 'morning',
-    note: 'Must be taken while fasting for 8-12 hours',
+    _id: '3',
+    serviceName: 'Lipid Profile', 
+    category: 'clinical_chemistry',
     price: 450,
-    description: 'Complete Cholesterol Panel'
+    description: 'Complete cholesterol panel',
+    preparationInstructions: 'Must be taken while fasting for 8-12 hours',
+    duration: '2-4 hours',
+    isActive: true
   },
   { 
-    name: 'Complete Blood Count', 
-    recommendedTime: 'any',
-    note: 'Can be done any time of day',
-    price: 350,
-    description: 'CBC Test'
+    _id: '4',
+    serviceName: 'Urinalysis', 
+    category: 'clinical_microscopy',
+    price: 200,
+    description: 'Complete urine examination',
+    preparationInstructions: 'Best taken in the morning for accurate results',
+    duration: '2-4 hours',
+    isActive: true
+  },
+  { 
+    _id: '5',
+    serviceName: 'X-Ray Chest (PA)', 
+    category: 'other',
+    price: 600,
+    description: 'Posterior-Anterior chest X-ray',
+    preparationInstructions: 'No special preparation required',
+    duration: '15 minutes',
+    isActive: true
   }
 ];
 
@@ -77,65 +97,174 @@ const LAB_LOCATIONS = [
 ];
 
 export default function AppointmentsScreen() {
+  const { user } = useAuth();
   const { appointments, addAppointment, rescheduleAppointment, cancelAppointment } =
     useAppointmentStore();
+  
+  // Real data states
+  const [realAppointments, setRealAppointments] = useState<any[]>([]);
+  const [availableServices, setAvailableServices] = useState<any[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
+  const [isLoadingServices, setIsLoadingServices] = useState(true);
+  
+  // Modal states
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
+  const [isTestSelectionVisible, setIsTestSelectionVisible] = useState(false);
+  
+  // Form states
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [selectedTest, setSelectedTest] = useState('Blood Test');
-  const [selectedLocation, setSelectedLocation] = useState(LAB_LOCATIONS[0]);
+  const [selectedTests, setSelectedTests] = useState<typeof TEST_OPTIONS>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTestOptions, setShowTestOptions] = useState(false);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState(TIME_SLOTS[0]);
-  const [showTimeSlots, setShowTimeSlots] = useState(false);
-  const [showLocations, setShowLocations] = useState(false);
 
-  const handleBookAppointment = () => {
-    if (!selectedLocation.availableTests.includes(selectedTest)) {
+  // Fetch appointments and services on mount
+  useEffect(() => {
+    if (user) {
+      fetchAppointments();
+      fetchServices();
+    }
+  }, [user]);
+
+  // Also fetch services immediately on component mount
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  const fetchAppointments = async () => {
+    try {
+      setIsLoadingAppointments(true);
+      const response = await appointmentAPI.getAppointments({
+        patientId: user?._id || user?.id
+      });
+      
+      if (response.success && response.data?.data) {
+        setRealAppointments(response.data.data);
+        console.log('📅 Fetched appointments:', response.data.data);
+      } else {
+        console.error('Failed to fetch appointments:', response.message);
+      }
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+    } finally {
+      setIsLoadingAppointments(false);
+    }
+  };
+
+  const fetchServices = async () => {
+    try {
+      setIsLoadingServices(true);
+      console.log('🔍 Fetching services from backend...');
+      
+      const response = await servicesAPI.getServices({ limit: 100 }); // Exact same as web frontend
+      
+      console.log('📡 Services response:', response.success, response.data?.length);
+      
+      if (response.success && response.data && Array.isArray(response.data)) {
+        console.log('✅ Successfully fetched services:', response.data.length);
+        console.log('� First service sample:', response.data[0]);
+        setAvailableServices(response.data);
+      } else {
+        console.error('❌ Failed to fetch services - Invalid response:', response);
+        // Fallback to test options if API fails
+        setAvailableServices(TEST_OPTIONS);
+      }
+    } catch (error) {
+      console.error('💥 Error fetching services:', error);
+      // Fallback to test options if error occurs
+      setAvailableServices(TEST_OPTIONS);
+    } finally {
+      setIsLoadingServices(false);
+    }
+  };
+
+  const handleBookAppointment = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to book an appointment');
+      return;
+    }
+
+    if (selectedTests.length === 0) {
       Alert.alert(
-        'Cannot Book Appointment',
-        'The selected test is not available at this location.',
+        'No Tests Selected',
+        'Please select at least one test to book an appointment.',
         [{ text: 'OK' }]
       );
       return;
     }
 
-    addAppointment({
-      testName: selectedTest,
-      date: selectedDate,
-      status: 'upcoming',
-      location: selectedLocation.name
-    });
+    // Remove time slot validation since it's not needed
+    // Check if all selected tests are available - removed since location is static
 
-    Alert.alert(
-      'Appointment Booked',
-      'Would you like to book another appointment?',
-      [
-        {
-          text: 'No',
-          onPress: () => {
-            setIsBookingModalVisible(false);
-            // Reset form fields
-            setSelectedTest(TEST_OPTIONS[0].name);
-            setSelectedDate(new Date());
-            setSelectedTimeSlot(TIME_SLOTS[0]);
-            setSelectedLocation(LAB_LOCATIONS[0]);
-          },
-          style: 'cancel'
-        },
-        {
-          text: 'Yes',
-          onPress: () => {
-            // Reset form fields but keep modal open
-            setSelectedTest(TEST_OPTIONS[0].name);
-            setSelectedDate(new Date());
-            setSelectedTimeSlot(TIME_SLOTS[0]);
-            setSelectedLocation(LAB_LOCATIONS[0]);
-          }
-        }
-      ]
-    );
+    try {
+      // Format appointment date - simplified
+      const appointmentDateTime = new Date(selectedDate);
+      // Set to 9:00 AM by default since patients can come anytime during clinic hours
+      appointmentDateTime.setHours(9, 0, 0, 0);
+
+      // Prepare appointment data
+      const appointmentData = {
+        patientId: user._id || user.id,
+        patientName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
+        contactNumber: user.phone || '',
+        email: user.email || '',
+        address: typeof user.address === 'string' ? user.address : '',
+        age: user.age || 0,
+        sex: user.gender || '',
+        serviceIds: selectedTests.map(test => test._id),
+        serviceName: selectedTests.map(test => test.serviceName).join(', '),
+        appointmentDate: appointmentDateTime.toISOString(),
+        appointmentTime: 'Any time during clinic hours',
+        type: 'clinic', // Always clinic since location is static
+        totalPrice: selectedTests.reduce((sum, test) => sum + test.price, 0),
+        notes: `Tests: ${selectedTests.map(test => test.serviceName).join(', ')}`
+      };
+
+      console.log('📝 Creating appointment:', appointmentData);
+
+      const response = await appointmentAPI.createAppointment(appointmentData);
+
+      if (response.success) {
+        const testNames = selectedTests.map(test => test.serviceName).join(', ');
+        const totalPrice = selectedTests.reduce((sum, test) => sum + test.price, 0);
+
+        Alert.alert(
+          'Appointment Booked',
+          `Your appointment for ${testNames} has been booked for ${selectedDate.toLocaleDateString()}.\n\nTotal: ₱${totalPrice.toFixed(2)}\n\nWould you like to book another appointment?`,
+          [
+            {
+              text: 'No',
+              onPress: () => {
+                setIsBookingModalVisible(false);
+                resetBookingForm();
+                fetchAppointments(); // Refresh the appointments list
+              }
+            },
+            {
+              text: 'Yes',
+              onPress: () => {
+                resetBookingForm();
+                fetchAppointments(); // Refresh the appointments list
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', response.message || 'Failed to book appointment');
+      }
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      Alert.alert('Error', 'Failed to book appointment. Please try again.');
+    }
+  };
+
+  const resetBookingForm = () => {
+    setSelectedTests([]);
+    setSelectedDate(new Date());
+  };
+
+  const handleTestSelection = (tests: any[]) => {
+    setSelectedTests(tests);
   };
 
   const handleReschedule = (appointment: Appointment) => {
@@ -162,28 +291,8 @@ export default function AppointmentsScreen() {
     }
   };
 
-  const handleTestSelect = (test: typeof TEST_OPTIONS[0]) => {
-    setSelectedTest(test.name);
-    setShowTestOptions(false);
-    
-    // Only update time slot if test requires morning
-    if (test.recommendedTime === 'morning') {
-      setSelectedTimeSlot(TIME_SLOTS[0]);
-    }
-  };
-
-  const handleLocationSelect = (location: typeof LAB_LOCATIONS[0]) => {
-    setSelectedLocation(location);
-    setShowLocations(false);
-    
-    // Check if selected test is available at this location
-    if (!location.availableTests.includes(selectedTest)) {
-      Alert.alert(
-        'Test Not Available',
-        `${selectedTest} is not available at ${location.name}. Please select another test or location.`,
-        [{ text: 'OK' }]
-      );
-    }
+  const calculateTotalPrice = () => {
+    return selectedTests.reduce((sum, test) => sum + test.price, 0);
   };
 
   const renderAppointmentCard = (appointment: Appointment) => (
@@ -236,46 +345,127 @@ export default function AppointmentsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.headerTitle}>My Appointments</ThemedText>
-        <TouchableOpacity
-          style={styles.bookButton}
-          onPress={() => setIsBookingModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
-          <ThemedText style={styles.bookButtonText}>Book New</ThemedText>
-        </TouchableOpacity>
-      </View>
+      <StatusBar backgroundColor="#21AEA8" barStyle="light-content" />
+      <AppHeader />
+      
+      <View style={styles.content}>
+        <View style={styles.pageHeader}>
+          <View style={styles.headerContent}>
+            <ThemedText style={styles.pageTitle}>My Appointments</ThemedText>
+            
+            {/* Debug button - remove in production */}
+            <TouchableOpacity
+              style={styles.bookButton}
+              onPress={() => setIsBookingModalVisible(true)}
+            >
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.bookButtonText}>Book New Appointment</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-      <ScrollView>
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContainer}>
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Upcoming Appointments</ThemedText>
-          {appointments.filter(apt => apt.status === 'upcoming').length === 0 ? (
+          {isLoadingAppointments ? (
+            <ThemedText style={styles.emptyStateText}>Loading appointments...</ThemedText>
+          ) : realAppointments.filter(apt => apt.status === 'pending' || apt.status === 'scheduled').length === 0 ? (
             <ThemedText style={styles.emptyStateText}>
               No upcoming appointments. Book one to get started!
             </ThemedText>
           ) : (
-            appointments
-              .filter(apt => apt.status === 'upcoming')
-              .map(renderAppointmentCard)
+            realAppointments
+              .filter(apt => apt.status === 'pending' || apt.status === 'scheduled')
+              .map((appointment, index) => (
+                <View key={appointment._id || index} style={styles.appointmentCard}>
+                  <View style={styles.appointmentHeader}>
+                    <View style={styles.appointmentInfo}>
+                      <ThemedText style={styles.appointmentTitle}>
+                        {appointment.serviceName || 'Lab Test'}
+                      </ThemedText>
+                      <ThemedText style={styles.appointmentDate}>
+                        {new Date(appointment.appointmentDate).toLocaleDateString()}
+                      </ThemedText>
+                      <ThemedText style={styles.appointmentTime}>
+                        {appointment.appointmentTime}
+                      </ThemedText>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: '#21AEA8' }]}>
+                      <ThemedText style={styles.statusText}>{appointment.status}</ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.appointmentDetails}>
+                    <View style={styles.detailRow}>
+                      <Ionicons name="location" size={16} color="#666" />
+                      <ThemedText style={styles.detailText}>
+                        {appointment.type === 'mobile' ? 'Mobile Lab Service' : 'Lab Center'}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Ionicons name="cash" size={16} color="#666" />
+                      <ThemedText style={styles.detailText}>
+                        ₱{appointment.totalPrice || 0}
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+              ))
           )}
         </View>
 
         <View style={[styles.section, styles.pastAppointmentsSection]}>
           <ThemedText style={styles.sectionTitle}>Past Appointments</ThemedText>
-          {appointments.filter(apt => apt.status !== 'upcoming').length === 0 ? (
+          {isLoadingAppointments ? (
+            <ThemedText style={styles.emptyStateText}>Loading appointments...</ThemedText>
+          ) : realAppointments.filter(apt => apt.status === 'completed' || apt.status === 'cancelled').length === 0 ? (
             <ThemedText style={styles.emptyStateText}>
-              No past appointments. Book one to get started!
+              No past appointments.
             </ThemedText>
           ) : (
             <View style={styles.pastAppointmentsContainer}>
-              {appointments
-                .filter(apt => apt.status !== 'upcoming')
-                .map(renderAppointmentCard)}
+              {realAppointments
+                .filter(apt => apt.status === 'completed' || apt.status === 'cancelled')
+                .map((appointment, index) => (
+                  <View key={appointment._id || index} style={styles.appointmentCard}>
+                    <View style={styles.appointmentHeader}>
+                      <View style={styles.appointmentInfo}>
+                        <ThemedText style={styles.appointmentTitle}>
+                          {appointment.serviceName || 'Lab Test'}
+                        </ThemedText>
+                        <ThemedText style={styles.appointmentDate}>
+                          {new Date(appointment.appointmentDate).toLocaleDateString()}
+                        </ThemedText>
+                        <ThemedText style={styles.appointmentTime}>
+                          {appointment.appointmentTime}
+                        </ThemedText>
+                      </View>
+                      <View style={[styles.statusBadge, { 
+                        backgroundColor: appointment.status === 'completed' ? '#16A34A' : '#EF4444' 
+                      }]}>
+                        <ThemedText style={styles.statusText}>{appointment.status}</ThemedText>
+                      </View>
+                    </View>
+                    <View style={styles.appointmentDetails}>
+                      <View style={styles.detailRow}>
+                        <Ionicons name="location" size={16} color="#666" />
+                        <ThemedText style={styles.detailText}>
+                          {appointment.type === 'mobile' ? 'Mobile Lab Service' : 'Lab Center'}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Ionicons name="cash" size={16} color="#666" />
+                        <ThemedText style={styles.detailText}>
+                          ₱{appointment.totalPrice || 0}
+                        </ThemedText>
+                      </View>
+                    </View>
+                  </View>
+                ))}
             </View>
           )}
         </View>
       </ScrollView>
+      </View>
 
       {/* Booking Modal */}
       <Modal
@@ -290,14 +480,37 @@ export default function AppointmentsScreen() {
             
             {/* Test Selection */}
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Select Test</ThemedText>
+              <ThemedText style={styles.label}>Select Tests</ThemedText>
               <TouchableOpacity
                 style={styles.selectButton}
-                onPress={() => setShowTestOptions(true)}
+                onPress={() => setIsTestSelectionVisible(true)}
               >
-                <ThemedText style={styles.selectedValueText}>{selectedTest}</ThemedText>
+                <ThemedText style={styles.selectedValueText}>
+                  {selectedTests.length === 0 
+                    ? 'Select Laboratory Tests...' 
+                    : `${selectedTests.length} test${selectedTests.length > 1 ? 's' : ''} selected`
+                  }
+                </ThemedText>
                 <Ionicons name="chevron-down" size={20} color="#1A202C" />
               </TouchableOpacity>
+              
+              {/* Selected Tests Preview */}
+              {selectedTests.length > 0 && (
+                <View style={styles.selectedTestsPreview}>
+                  <ThemedText style={styles.previewTitle}>Selected Tests:</ThemedText>
+                  {selectedTests.map(test => (
+                    <View key={test._id} style={styles.testPreviewItem}>
+                      <ThemedText style={styles.testPreviewName}>{test.serviceName}</ThemedText>
+                      <ThemedText style={styles.testPreviewPrice}>₱{test.price.toFixed(2)}</ThemedText>
+                    </View>
+                  ))}
+                  <View style={styles.totalPricePreview}>
+                    <ThemedText style={styles.totalPriceText}>
+                      Total: ₱{calculateTotalPrice().toFixed(2)}
+                    </ThemedText>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Date Selection */}
@@ -321,39 +534,15 @@ export default function AppointmentsScreen() {
               )}
             </View>
 
-            {/* Time Slot Selection */}
+            {/* Location Selection - Static like frontend */}
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Select Time Slot</ThemedText>
-              <TouchableOpacity
-                style={styles.selectButton}
-                onPress={() => setShowTimeSlots(true)}
-              >
-                <ThemedText style={styles.selectedValueText}>{selectedTimeSlot.label}</ThemedText>
-                <Ionicons name="chevron-down" size={20} color="#1A202C" />
-              </TouchableOpacity>
-              
-              {/* Add this recommendation section */}
-              <View style={styles.recommendationContainer}>
-                <View style={styles.recommendationLine} />
-                <ThemedText style={styles.recommendationText}>
-                  {TEST_OPTIONS.find(test => test.name === selectedTest)?.note || 'Select a test to see recommendations'}
-                </ThemedText>
-              </View>
-            </View>
-
-            {/* Location Selection */}
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Select Laboratory</ThemedText>
-              <TouchableOpacity
-                style={styles.selectButton}
-                onPress={() => setShowLocations(true)}
-              >
-                <View>
-                  <ThemedText style={styles.selectedValueText}>{selectedLocation.name}</ThemedText>
-                  <ThemedText style={styles.addressText}>{selectedLocation.address}</ThemedText>
+              <ThemedText style={styles.label}>Location</ThemedText>
+              <View style={styles.locationDisplay}>
+                <View style={styles.locationInfo}>
+                  <ThemedText style={styles.staticLocationName}>MDLAB Direct - Main Branch</ThemedText>
+                  <ThemedText style={styles.locationDetails}>You can visit anytime during clinic hours</ThemedText>
                 </View>
-                <Ionicons name="chevron-down" size={20} color="#1A202C" />
-              </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.modalButtons}>
@@ -374,109 +563,14 @@ export default function AppointmentsScreen() {
         </View>
       </Modal>
 
-      {/* Test Options Modal */}
-      <Modal
-        visible={showTestOptions}
-        transparent={true}
-        animationType="slide"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <ThemedText style={styles.modalTitle}>Select Test</ThemedText>
-            <ScrollView style={styles.optionsList}>
-              {TEST_OPTIONS.map((test) => (
-                <TouchableOpacity
-                  key={test.name}
-                  style={styles.optionItem}
-                  onPress={() => handleTestSelect(test)}
-                >
-                  <View style={styles.testOptionHeader}>
-                    <ThemedText style={styles.optionText}>{test.name}</ThemedText>
-                    <ThemedText style={styles.priceText}>₱{test.price}</ThemedText>
-                  </View>
-                  <ThemedText style={styles.optionDescription}>{test.description}</ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
-              onPress={() => setShowTestOptions(false)}
-            >
-              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Time Slots Modal */}
-      <Modal
-        visible={showTimeSlots}
-        transparent={true}
-        animationType="slide"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <ThemedText style={styles.modalTitle}>Select Time Slot</ThemedText>
-            <ScrollView style={styles.optionsList}>
-              {TIME_SLOTS.map((slot) => (
-                <TouchableOpacity
-                  key={slot.id}
-                  style={styles.optionItem}
-                  onPress={() => {
-                    setSelectedTimeSlot(slot);
-                    setShowTimeSlots(false);
-                  }}
-                >
-                  <ThemedText style={styles.optionText}>{slot.label}</ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
-              onPress={() => setShowTimeSlots(false)}
-            >
-              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Location Modal */}
-      <Modal
-        visible={showLocations}
-        transparent={true}
-        animationType="slide"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <ThemedText style={styles.modalTitle}>Select Laboratory</ThemedText>
-            <ScrollView style={styles.optionsList}>
-              {LAB_LOCATIONS.map((location) => (
-                <TouchableOpacity
-                  key={location.id}
-                  style={styles.locationItem}
-                  onPress={() => handleLocationSelect(location)}
-                >
-                  <ThemedText style={styles.locationName}>{location.name}</ThemedText>
-                  <ThemedText style={styles.locationAddress}>{location.address}</ThemedText>
-                  <View style={styles.availableTests}>
-                    <ThemedText style={styles.availableTestsLabel}>Available Tests:</ThemedText>
-                    <ThemedText style={styles.availableTestsList}>
-                      {location.availableTests.join(', ')}
-                    </ThemedText>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
-              onPress={() => setShowLocations(false)}
-            >
-              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* Test Selection Modal */}
+      <TestSelectionModal
+        isVisible={isTestSelectionVisible}
+        onClose={() => setIsTestSelectionVisible(false)}
+        onConfirm={handleTestSelection}
+        availableServices={availableServices}
+        isLoading={isLoadingServices}
+      />
 
       {/* Reschedule Modal */}
       <Modal
@@ -537,6 +631,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#E8F5F3',
   },
+  content: {
+    flex: 1,
+  },
+  pageHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    backgroundColor: '#E8F5F3',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    flex: 1,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -554,14 +671,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#21AEA8',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
+    shadowColor: '#21AEA8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   bookButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    marginLeft: 8,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   section: {
     padding: 20,
@@ -843,5 +966,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4A5568',
     lineHeight: 20,
+  },
+  selectedTestsPreview: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#21AEA8',
+  },
+  previewTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A202C',
+    marginBottom: 8,
+  },
+  testPreviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  testPreviewName: {
+    fontSize: 14,
+    color: '#1A202C',
+    flex: 1,
+  },
+  testPreviewPrice: {
+    fontSize: 14,
+    color: '#21AEA8',
+    fontWeight: '600',
+  },
+  totalPricePreview: {
+    borderTopWidth: 1,
+    borderTopColor: '#21AEA8',
+    marginTop: 8,
+    paddingTop: 8,
+    alignItems: 'flex-end',
+  },
+  totalPriceText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#21AEA8',
+  },
+  // Additional styles for appointment cards
+  appointmentInfo: {
+    flex: 1,
+  },
+  appointmentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  appointmentDate: {
+    fontSize: 14,
+    color: '#4A5568',
+    marginBottom: 2,
+  },
+  appointmentTime: {
+    fontSize: 14,
+    color: '#4A5568',
+  },
+  // Location display styles
+  locationDisplay: {
+    backgroundColor: '#F7FAFC',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  locationInfo: {
+    alignItems: 'center',
+  },
+  staticLocationName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  locationDetails: {
+    fontSize: 14,
+    color: '#4A5568',
+    textAlign: 'center',
   },
 });

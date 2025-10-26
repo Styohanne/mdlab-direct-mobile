@@ -1,7 +1,8 @@
+import AppHeader from '@/components/app-header';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Modal, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface MobileLabSchedule {
   isActive: boolean;
@@ -25,13 +26,17 @@ export default function MobileLabScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Mobile Lab Service</ThemedText>
-          <ThemedText style={styles.headerSubtitle}>Mobile laboratory services in your community</ThemedText>
+      <StatusBar backgroundColor="#21AEA8" barStyle="light-content" />
+      <AppHeader />
+      
+      <View style={styles.content}>
+        <View style={styles.pageHeader}>
+          <ThemedText style={styles.pageTitle}>Mobile Lab Service</ThemedText>
+          <ThemedText style={styles.pageSubtitle}>Mobile laboratory services in your community</ThemedText>
         </View>
 
-        <View style={styles.mainContent}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.mainContent}>
           <View style={styles.titleRow}>
             <View style={styles.titleContainer}>
               <ThemedText style={styles.pageTitle}>Mobile Lab Service</ThemedText>
@@ -227,6 +232,7 @@ export default function MobileLabScreen() {
           </View>
         </View>
       </ScrollView>
+      </View>
 
       <Modal
         visible={showScheduleModal}
@@ -298,6 +304,22 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  pageHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+    backgroundColor: '#E8F5F3',
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    color: '#718096',
+  },
   header: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
@@ -325,17 +347,6 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
     marginRight: 12,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2D3748',
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 14,
-    color: '#718096',
-    lineHeight: 20,
   },
   checkButton: {
     backgroundColor: '#21AEA8',
@@ -655,14 +666,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2D3748',
     marginBottom: 4,
-  },
-  scheduleLocation: {
-    fontSize: 14,
-    color: '#4A5568',
-    marginBottom: 2,
-  },
-  scheduleTime: {
-    fontSize: 12,
-    color: '#718096',
   },
 });

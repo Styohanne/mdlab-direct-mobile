@@ -4,15 +4,9 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 // API Configuration
 const getApiBaseUrl = () => {
   const BACKEND_PORT = '5000';
-  
-  // For React Native/Expo, we need to use the computer's IP address instead of localhost
-  // This allows the mobile app/simulator to reach the backend server
   const BACKEND_IP = '192.168.1.112'; // Your computer's IP address
   
   return `http://${BACKEND_IP}:${BACKEND_PORT}/api`;
-  
-  // Note: If you're running on web (expo start --web), you can use localhost:
-  // return `http://localhost:${BACKEND_PORT}/api`;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -20,20 +14,13 @@ const API_BASE_URL = getApiBaseUrl();
 // Create axios instance with default configuration
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000, // Increased timeout for mobile networks
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
-  // Add these for React Native compatibility
   validateStatus: function (status) {
-    return status >= 200 && status < 500; // Don't throw for 4xx errors, handle them gracefully
+    return status >= 200 && status < 500;
   },
-});
-
-console.log('🌐 Mobile API Configuration:', {
-  baseURL: API_BASE_URL,
-  timestamp: new Date().toISOString(),
-  environment: 'development'
 });
 
 // Request interceptor to add auth token
@@ -209,7 +196,7 @@ export const authAPI = {
     lastName: string;
     email: string;
     username: string;
-    passwordHash: string;
+    password: string; // Updated to match backend expectation
     phone?: string;
     address?: string;
     dateOfBirth?: string;
@@ -249,20 +236,12 @@ export const authAPI = {
     password: string;
   }): Promise<ApiResponse<{ user: User; token: string }>> => {
     try {
-      console.log('🔐 Mobile API: Login attempt started');
-      console.log('🔐 Mobile API: Endpoint URL:', `${API_BASE_URL}/auth/login`);
-      console.log('🔐 Mobile API: Username/Email:', credentials.identifier);
-      
       const response: AxiosResponse<LoginResponse> = await api.post('/auth/login', credentials);
-      console.log('🔐 Mobile API: Login response received:', response.status);
-      console.log('🔐 Mobile API: Response data:', response.data);
       
       // Store token and user data
       if (response.data.success && response.data.token) {
-        console.log('🔐 Mobile API: Storing auth data...');
         await AsyncStorage.setItem('token', response.data.token);
         await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
-        console.log('🔐 Mobile API: Auth data stored successfully');
       }
       
       return {
@@ -274,18 +253,18 @@ export const authAPI = {
         }
       };
     } catch (error: any) {
-      console.error('🔐 Mobile API: Login error occurred');
-      console.error('🔐 Mobile API: Error details:', error.message);
-      console.error('🔐 Mobile API: Error response:', error.response?.data);
-      console.error('🔐 Mobile API: Error status:', error.response?.status);
-      console.error('🔐 Mobile API: Full error:', error);
+      console.error('Login error:', error);
       
       let errorMessage = 'Network error - please check your connection';
       
       if (error.code === 'ECONNREFUSED') {
-        errorMessage = 'Backend server is not running on localhost:5000';
+        errorMessage = 'Backend server is not running';
       } else if (error.response?.status === 404) {
-        errorMessage = 'Login endpoint not found - check backend API structure';
+        errorMessage = 'Login endpoint not found';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error - please try again later';
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
+        errorMessage = error.response?.data?.message || 'Invalid username or password';
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
@@ -385,14 +364,20 @@ export const servicesAPI = {
     search?: string;
   } = {}): Promise<ApiResponse<Service[]>> => {
     try {
+      console.log('🔍 Making services API call with params:', params);
+      
+      // Use exact same approach as frontend - simple axios call
       const response: AxiosResponse<{ success: boolean; data: Service[]; message?: string }> = await api.get('/services', { params });
+      
+      console.log('📡 Services API response:', response.data);
+      
       return {
         success: response.data.success,
         data: response.data.data,
         message: response.data.message
       };
     } catch (error: any) {
-      console.error('Get services error:', error);
+      console.error('❌ Get services error:', error);
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to fetch services',
@@ -679,37 +664,6 @@ export const mobileLabAPI = {
 
 // Utility functions for authentication
 export const authUtils = {
-  // Test connection to backend
-  testConnection: async (): Promise<{ success: boolean; message: string }> => {
-    try {
-      console.log('🔗 Testing connection to:', API_BASE_URL);
-      const response = await api.get('/auth/login', { timeout: 5000 });
-      return {
-        success: true,
-        message: 'Backend connection successful'
-      };
-    } catch (error: any) {
-      console.error('🔗 Connection test failed:', error.message);
-      
-      if (error.code === 'ECONNREFUSED') {
-        return {
-          success: false,
-          message: 'Backend server is not running or not accessible'
-        };
-      } else if (error.code === 'ETIMEDOUT') {
-        return {
-          success: false,
-          message: 'Connection timeout - check network and firewall'
-        };
-      } else {
-        return {
-          success: false,
-          message: `Connection error: ${error.message}`
-        };
-      }
-    }
-  },
-
   // Check if user is logged in
   isAuthenticated: async (): Promise<boolean> => {
     try {
@@ -773,6 +727,7 @@ export default api;
 
 // Export types for use in components
 export type {
-    ApiResponse, Appointment, MobileLabSchedule, Service,
-    TestResult, User
+  ApiResponse, Appointment, MobileLabSchedule, Service,
+  TestResult, User
 };
+

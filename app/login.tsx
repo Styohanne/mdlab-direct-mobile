@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { authAPI, authUtils } from '../services/api';
+import { authAPI } from '../services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -13,20 +13,6 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-
-  const testBackendConnection = async () => {
-    console.log('🔗 Testing backend connection...');
-    const result = await authUtils.testConnection();
-    if (!result.success) {
-      setConnectionError(result.message);
-      console.error('🔗 Connection test failed:', result.message);
-    } else {
-      setConnectionError(null);
-      console.log('🔗 Connection test successful');
-    }
-    return result.success;
-  };
 
   const handleSignIn = async () => {
     // Basic validation
@@ -36,16 +22,8 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    setConnectionError(null);
     
     try {
-      // First test if we can reach the backend
-      const connectionOk = await testBackendConnection();
-      if (!connectionOk) {
-        setIsLoading(false);
-        return;
-      }
-
       const response = await authAPI.login({
         identifier: username.trim(),
         password: password
@@ -102,14 +80,6 @@ export default function LoginScreen() {
           {/* Login Form */}
           <View style={styles.loginForm}>
             <ThemedText style={styles.title}>LOGIN</ThemedText>
-
-            {/* Connection Error Display */}
-            {connectionError && (
-              <View style={styles.errorContainer}>
-                <Ionicons name="warning-outline" size={16} color="#FF4444" />
-                <ThemedText style={styles.errorText}>{connectionError}</ThemedText>
-              </View>
-            )}
 
             {/* Username Input */}
             <TextInput
@@ -247,22 +217,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 30,
     letterSpacing: 1,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF4444',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#FF4444',
-    marginLeft: 8,
-    flex: 1,
   },
   input: {
     backgroundColor: '#F8F9FA',

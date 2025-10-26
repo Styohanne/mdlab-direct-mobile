@@ -1,10 +1,11 @@
+import AppHeader from '@/components/app-header';
 import { ThemedText } from '@/components/themed-text';
 import { scheduleResultNotification } from '@/utils/notifications';
 import { generateTestResultPDF } from '@/utils/pdfGenerator';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function ResultsScreen() {
   const [selectedTestType, setSelectedTestType] = useState('all');
@@ -103,19 +104,17 @@ export default function ResultsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Test Results</ThemedText>
-          <ThemedText style={styles.headerSubtitle}>View your latest test results</ThemedText>
+      <StatusBar backgroundColor="#21AEA8" barStyle="light-content" />
+      <AppHeader />
+      
+      <View style={styles.content}>
+        <View style={styles.pageHeader}>
+          <ThemedText style={styles.pageTitle}>Test Results</ThemedText>
+          <ThemedText style={styles.pageSubtitle}>View and download your laboratory test results</ThemedText>
         </View>
 
-        <View style={styles.mainContent}>
-          <View style={styles.titleRow}>
-            <View>
-              <ThemedText style={styles.pageTitle}>Test Results</ThemedText>
-              <ThemedText style={styles.pageSubtitle}>View and download your laboratory test results</ThemedText>
-            </View>
-          </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.mainContent}>
 
           {/* Filters */}
           <View style={styles.filtersContainer}>
@@ -279,6 +278,7 @@ export default function ResultsScreen() {
           )}
         </View>
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -290,6 +290,22 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  pageHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+    backgroundColor: '#E8F5F3',
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    color: '#718096',
   },
   header: {
     backgroundColor: '#FFFFFF',
@@ -311,16 +327,6 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     marginBottom: 24,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2D3748',
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 14,
-    color: '#718096',
   },
   filtersContainer: {
     flexDirection: 'row',
