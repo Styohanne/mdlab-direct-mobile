@@ -1,8 +1,35 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
+import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function DrawerLayout() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  useEffect(() => {
+    console.log('🔐 Drawer Layout - Auth Status:', { isAuthenticated, isLoading, hasUser: !!user });
+  }, [isAuthenticated, isLoading, user]);
+
+  // Show loading spinner while checking auth
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#21AEA8' }}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+      </View>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated || !user) {
+    console.log('🔐 Drawer Layout - Not authenticated, redirecting to login');
+    return <Redirect href="/login" />;
+  }
+
+  console.log('🔐 Drawer Layout - User authenticated, rendering drawer');
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer

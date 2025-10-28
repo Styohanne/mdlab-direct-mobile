@@ -30,9 +30,12 @@ api.interceptors.request.use(
       const token = await AsyncStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log('🔑 Token added to request for:', config.url);
+      } else {
+        console.log('❌ No token found for request:', config.url);
       }
     } catch (error) {
-      console.error('Error getting token from storage:', error);
+      console.error('❌ Error getting token from storage:', error);
     }
     return config;
   },
@@ -46,11 +49,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
+      console.log('❌ 401 Authentication failed for:', error.config?.url);
       // Token expired or invalid - clear stored credentials
       try {
         await AsyncStorage.multiRemove(['token', 'user']);
-        console.log('Authentication failed, cleared stored credentials');
-        // You could emit an event here to redirect to login
+        console.log('🧹 Cleared invalid credentials');
       } catch (storageError) {
         console.error('Error clearing storage:', storageError);
       }
@@ -366,15 +369,48 @@ export const servicesAPI = {
     try {
       console.log('🔍 Making services API call with params:', params);
       
-      // Use exact same approach as frontend - simple axios call
-      const response: AxiosResponse<{ success: boolean; data: Service[]; message?: string }> = await api.get('/services', { params });
+      // Fetch all pages to get complete data like the web frontend
+      const allServices: Service[] = [];
+      let currentPage = 1;
+      let hasMore = true;
       
-      console.log('📡 Services API response:', response.data);
+      while (hasMore) {
+        const pageParams = { ...params, page: currentPage, limit: 50 };
+        console.log(`📄 Fetching page ${currentPage}...`);
+        
+        const response: AxiosResponse<{ 
+          success: boolean; 
+          data: Service[]; 
+          message?: string;
+          pagination?: {
+            currentPage: number;
+            totalPages: number;
+            hasNext: boolean;
+          };
+        }> = await api.get('/services', { params: pageParams });
+        
+        console.log(`📡 Services API response page ${currentPage}:`, response.data);
+        
+        if (response.data.success && response.data.data) {
+          allServices.push(...response.data.data);
+          
+          // Check if there are more pages
+          const pagination = response.data.pagination;
+          hasMore = pagination?.hasNext || false;
+          currentPage++;
+          
+          console.log(`📊 Page ${currentPage - 1}: Got ${response.data.data.length} services. Total so far: ${allServices.length}. Has more: ${hasMore}`);
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      console.log(`✅ Fetched all services. Total: ${allServices.length}`);
       
       return {
-        success: response.data.success,
-        data: response.data.data,
-        message: response.data.message
+        success: true,
+        data: allServices,
+        message: `Successfully fetched ${allServices.length} services`
       };
     } catch (error: any) {
       console.error('❌ Get services error:', error);
@@ -424,8 +460,9 @@ export const servicesAPI = {
 // Appointment API functions
 export const appointmentAPI = {
   // Get appointments with filtering
+  // NOTE: For patients, the backend automatically filters by authenticated user's ID
+  // DO NOT pass patientId parameter - it's handled by authentication middleware (same as web)
   getAppointments: async (params: {
-    patientId?: string;
     status?: string;
     date?: string;
     limit?: number;
@@ -444,17 +481,36 @@ export const appointmentAPI = {
       const queryString = queryParams.toString();
       const url = `/appointments${queryString ? `?${queryString}` : ''}`;
       
+      console.log('🌐 GET APPOINTMENTS REQUEST');
+      console.log('   URL:', `${API_BASE_URL}${url}`);
+      console.log('   Query params:', queryString || 'none');
+      
       const response: AxiosResponse<{ success: boolean; data: Appointment[]; pagination?: any; message?: string }> = await api.get(url);
+      
+      console.log('📡 GET APPOINTMENTS RESPONSE');
+      console.log('   Success:', response.data.success);
+      console.log('   Appointments count:', response.data.data?.length || 0);
+      console.log('   Raw response:', JSON.stringify(response.data, null, 2));
+      
+      if (response.data.data && response.data.data.length > 0) {
+        console.log('📋 Sample appointment:', JSON.stringify(response.data.data[0], null, 2));
+      } else {
+        console.log('⚠️ NO APPOINTMENTS - Backend returned empty array');
+      }
+      
       return {
         success: true,
         data: {
-          data: response.data.data,
+          data: response.data.data || [],
           pagination: response.data.pagination
         },
         message: response.data.message
       };
     } catch (error: any) {
-      console.error('Get appointments error:', error);
+      console.error('❌ GET APPOINTMENTS ERROR');
+      console.error('   Error message:', error.message);
+      console.error('   Response data:', error.response?.data);
+      console.error('   Status code:', error.response?.status);
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to fetch appointments',
@@ -464,6 +520,8 @@ export const appointmentAPI = {
   },
 
   // Create new appointment
+  // NOTE: The backend controller automatically sets the 'patient' field from req.user._id
+  // patientId in request body is optional and can be overridden by backend
   createAppointment: async (appointmentData: {
     patientId?: string;
     patientName: string;
@@ -493,18 +551,31 @@ export const appointmentAPI = {
         createdByName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'Patient'
       };
       
-      console.log('🧑‍⚕️ MOBILE APPOINTMENT DEBUG:');
-      console.log('   Creating appointment with payload:', payload);
+      console.log('🌐 CREATE APPOINTMENT REQUEST');
+      console.log('   URL:', `${API_BASE_URL}/appointments`);
+      console.log('   Payload:', JSON.stringify(payload, null, 2));
+      console.log('   ServiceIds:', payload.serviceIds);
+      console.log('   Patient name:', payload.patientName);
+      console.log('   Date:', payload.appointmentDate);
       
       const response: AxiosResponse<{ success: boolean; data: Appointment; message?: string }> = await api.post('/appointments', payload);
+      
+      console.log('📡 CREATE APPOINTMENT RESPONSE');
+      console.log('   Success:', response.data.success);
+      console.log('   Created appointment ID:', response.data.data?._id);
+      console.log('   Response data:', JSON.stringify(response.data, null, 2));
+      
       return {
         success: true,
         data: response.data.data,
         message: response.data.message
       };
     } catch (error: any) {
-      console.error('Create appointment error:', error);
-      console.error('Error response data:', error.response?.data);
+      console.error('❌ CREATE APPOINTMENT ERROR');
+      console.error('   Error message:', error.message);
+      console.error('   Response status:', error.response?.status);
+      console.error('   Response data:', error.response?.data);
+      console.error('   Validation errors:', error.response?.data?.errors);
       
       return {
         success: false,
@@ -720,6 +791,35 @@ export const authUtils = {
   // Check if user is patient
   isPatient: async (): Promise<boolean> => {
     return await authUtils.hasRole('patient');
+  },
+};
+
+// Lab Tests API
+export const labTestsAPI = {
+  // Get all test categories
+  getCategories: async (): Promise<ApiResponse> => {
+    try {
+      console.log('🔗 Making request to /api/lab-tests/categories');
+      const response: AxiosResponse<ApiResponse> = await api.get('/lab-tests/categories');
+      console.log('📡 Categories API raw response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Categories API error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch categories');
+    }
+  },
+
+  // Get tests by category
+  getTestsByCategory: async (categoryName: string): Promise<ApiResponse> => {
+    try {
+      console.log(`🔗 Making request to /api/lab-tests?category=${categoryName}`);
+      const response: AxiosResponse<ApiResponse> = await api.get(`/lab-tests?category=${categoryName}`);
+      console.log(`📡 Tests API raw response for ${categoryName}:`, response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error(`❌ Tests API error for ${categoryName}:`, error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || error.message || `Failed to fetch tests for ${categoryName}`);
+    }
   },
 };
 

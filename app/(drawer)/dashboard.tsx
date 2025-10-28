@@ -109,10 +109,8 @@ export default function DashboardScreen() {
       }
       
       // Fetch appointments
-      console.log('📊 Dashboard: Fetching appointments for user:', user?._id || user?.id);
-      const appointmentsResponse = await appointmentAPI.getAppointments({
-        patientId: user?._id || user?.id
-      });
+      console.log('📊 Dashboard: Fetching appointments for authenticated user');
+      const appointmentsResponse = await appointmentAPI.getAppointments();
       console.log('📊 Dashboard: Appointments response:', appointmentsResponse);
 
       // Fetch test results

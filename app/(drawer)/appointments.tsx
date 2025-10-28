@@ -1,10 +1,11 @@
 import AppHeader from '@/components/app-header';
-import TestSelectionModal from '@/components/TestSelectionModalNew';
+import LabTestModal from '@/components/LabTestModal';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/contexts/AuthContext';
 import { appointmentAPI, servicesAPI } from '@/services/api';
 import { Appointment, useAppointmentStore } from '@/utils/appointments';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from 'react';
 import {
@@ -121,8 +122,15 @@ export default function AppointmentsScreen() {
   // Fetch appointments and services on mount
   useEffect(() => {
     if (user) {
+      console.log('🔍 User found, fetching appointments for:', {
+        id: user._id || user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email
+      });
       fetchAppointments();
       fetchServices();
+    } else {
+      console.log('❌ No user found in useEffect');
     }
   }, [user]);
 
@@ -134,18 +142,42 @@ export default function AppointmentsScreen() {
   const fetchAppointments = async () => {
     try {
       setIsLoadingAppointments(true);
-      const response = await appointmentAPI.getAppointments({
-        patientId: user?._id || user?.id
+      
+      console.log('🔍 Fetching appointments for authenticated user');
+      console.log('   User info:', {
+        id: user?._id || user?.id,
+        name: `${user?.firstName} ${user?.lastName}`,
+        email: user?.email
       });
       
+      // Test if we have a valid token
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.log('❌ No authentication token found');
+          return;
+        }
+        console.log('✅ Token found in storage');
+      } catch (e) {
+        console.log('❌ Error checking token:', e);
+      }
+      
+      // DO NOT pass patientId - backend filters automatically by authenticated user
+      // This matches the web frontend implementation
+      const response = await appointmentAPI.getAppointments();
+      
+      console.log('📡 Fetch appointments response:', response);
+      
       if (response.success && response.data?.data) {
+        console.log('📅 Successfully fetched appointments:', response.data.data.length, 'appointments');
+        console.log('� Appointment details:', response.data.data);
         setRealAppointments(response.data.data);
-        console.log('📅 Fetched appointments:', response.data.data);
       } else {
-        console.error('Failed to fetch appointments:', response.message);
+        console.error('❌ Failed to fetch appointments:', response.message);
+        console.log('🔍 Response structure:', response);
       }
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('💥 Error fetching appointments:', error);
     } finally {
       setIsLoadingAppointments(false);
     }
@@ -193,36 +225,63 @@ export default function AppointmentsScreen() {
       return;
     }
 
-    // Remove time slot validation since it's not needed
-    // Check if all selected tests are available - removed since location is static
-
     try {
-      // Format appointment date - simplified
-      const appointmentDateTime = new Date(selectedDate);
-      // Set to 9:00 AM by default since patients can come anytime during clinic hours
-      appointmentDateTime.setHours(9, 0, 0, 0);
+      console.log('=== 📝 APPOINTMENT BOOKING DEBUG ===');
+      console.log('👤 User data:', {
+        id: user._id || user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        phone: user.phone,
+        gender: user.gender,
+        age: user.age,
+        address: user.address
+      });
+      console.log('🧪 Selected tests:', selectedTests);
 
-      // Prepare appointment data
-      const appointmentData = {
-        patientId: user._id || user.id,
-        patientName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
-        contactNumber: user.phone || '',
-        email: user.email || '',
-        address: typeof user.address === 'string' ? user.address : '',
-        age: user.age || 0,
-        sex: user.gender || '',
-        serviceIds: selectedTests.map(test => test._id),
-        serviceName: selectedTests.map(test => test.serviceName).join(', '),
-        appointmentDate: appointmentDateTime.toISOString(),
-        appointmentTime: 'Any time during clinic hours',
-        type: 'clinic', // Always clinic since location is static
-        totalPrice: selectedTests.reduce((sum, test) => sum + test.price, 0),
-        notes: `Tests: ${selectedTests.map(test => test.serviceName).join(', ')}`
+      // Format appointment date - EXACT SAME AS WEB
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const localDateString = `${year}-${month}-${day}`;
+      
+      console.log('📅 Formatted date:', localDateString);
+
+      // Format sex field - capitalize first letter to match backend validation
+      const formatGender = (gender: string | undefined) => {
+        if (!gender) return undefined;
+        return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
       };
 
-      console.log('📝 Creating appointment:', appointmentData);
+      // Prepare appointment data - EXACT SAME STRUCTURE AS WEB
+      const testNames = selectedTests.map(test => test.serviceName).join(', ');
+      const testIds = selectedTests.map(test => test._id);
+      const totalPrice = selectedTests.reduce((sum, test) => sum + test.price, 0);
 
+      const appointmentData = {
+        patientId: user._id || user.id,
+        patientName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Patient',
+        contactNumber: user.phone || '09123456789',
+        email: user.email || '',
+        address: typeof user.address === 'object' ? (user.address as any)?.street : user.address || '',
+        age: user.age || undefined,
+        sex: formatGender(user.gender),
+        serviceIds: testIds, // Array of service IDs - SAME AS WEB
+        serviceName: testNames, // Combined service names - SAME AS WEB
+        appointmentDate: localDateString, // YYYY-MM-DD format - SAME AS WEB
+        appointmentTime: 'Any time during clinic hours', // Default time - SAME AS WEB
+        type: 'scheduled', // ✅ FIXED: Changed from 'clinic' to 'scheduled' to match backend enum
+        priority: 'regular', // ✅ ADDED: Required by backend, matches web default
+        totalPrice: totalPrice, // Total price of all tests - SAME AS WEB
+        notes: `Patient booking - Multiple tests: ${testNames}`, // SAME AS WEB
+        reasonForVisit: `Multiple tests - Patient self-booking (${selectedTests.length} tests)` // SAME AS WEB
+      };
+
+      console.log('� FINAL APPOINTMENT DATA:', JSON.stringify(appointmentData, null, 2));
+      console.log('🌐 Sending to:', 'POST /api/appointments');
+      
       const response = await appointmentAPI.createAppointment(appointmentData);
+      
+      console.log('📡 Appointment response:', response.success ? 'Success' : 'Failed');
 
       if (response.success) {
         const testNames = selectedTests.map(test => test.serviceName).join(', ');
@@ -234,27 +293,53 @@ export default function AppointmentsScreen() {
           [
             {
               text: 'No',
-              onPress: () => {
+              onPress: async () => {
                 setIsBookingModalVisible(false);
                 resetBookingForm();
-                fetchAppointments(); // Refresh the appointments list
+                // Add a small delay to ensure the appointment is saved before fetching
+                setTimeout(() => {
+                  fetchAppointments();
+                }, 1000);
               }
             },
             {
               text: 'Yes',
-              onPress: () => {
+              onPress: async () => {
                 resetBookingForm();
-                fetchAppointments(); // Refresh the appointments list
+                // Add a small delay to ensure the appointment is saved before fetching
+                setTimeout(() => {
+                  fetchAppointments();
+                }, 1000);
               }
             }
           ]
         );
       } else {
+        console.log('❌ Appointment creation failed:', response.message);
         Alert.alert('Error', response.message || 'Failed to book appointment');
       }
-    } catch (error) {
-      console.error('Error booking appointment:', error);
-      Alert.alert('Error', 'Failed to book appointment. Please try again.');
+    } catch (error: any) {
+      console.error('💥 Error booking appointment:', error);
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 401) {
+        console.log('🚨 AUTHENTICATION ERROR detected during appointment creation');
+        Alert.alert(
+          'Authentication Error', 
+          'Your session has expired. Please login again.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Could redirect to login here
+                console.log('User needs to re-authenticate');
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to book appointment. Please try again.');
+      }
     }
   };
 
@@ -263,8 +348,32 @@ export default function AppointmentsScreen() {
     setSelectedDate(new Date());
   };
 
-  const handleTestSelection = (tests: any[]) => {
-    setSelectedTests(tests);
+  const handleTestSelection = (selectionData: any) => {
+    console.log('📋 Received test selection data:', selectionData);
+    
+    // The LabTestModal passes an object with tests array
+    const tests = selectionData.tests || selectionData;
+    console.log('✅ Selected tests:', tests);
+    
+    // Ensure each test has the correct structure with serviceName as name
+    const formattedTests = tests.map((test: any) => {
+      console.log('🔧 Formatting test:', test);
+      return {
+        _id: test._id,
+        serviceName: test.serviceName || test.name,
+        name: test.serviceName || test.name, // Add name property for compatibility
+        price: test.price || 0,
+        category: test.category,
+        description: test.description,
+        preparationInstructions: test.preparationInstructions,
+        duration: test.duration,
+        isActive: test.isActive
+      };
+    });
+    
+    console.log('🔧 Formatted tests:', formattedTests);
+    setSelectedTests(formattedTests);
+    console.log('💾 Setting selected tests in state:', formattedTests);
   };
 
   const handleReschedule = (appointment: Appointment) => {
@@ -486,10 +595,22 @@ export default function AppointmentsScreen() {
                 onPress={() => setIsTestSelectionVisible(true)}
               >
                 <ThemedText style={styles.selectedValueText}>
-                  {selectedTests.length === 0 
-                    ? 'Select Laboratory Tests...' 
-                    : `${selectedTests.length} test${selectedTests.length > 1 ? 's' : ''} selected`
-                  }
+                  {(() => {
+                    console.log('🎯 Rendering dropdown text, selectedTests:', selectedTests);
+                    if (selectedTests.length === 0) {
+                      return 'Select Laboratory Tests...';
+                    } else if (selectedTests.length === 1) {
+                      const testName = selectedTests[0]?.serviceName || 'Unknown Test';
+                      console.log('📝 Single test name:', testName);
+                      return testName;
+                    } else {
+                      const testNames = selectedTests.map(test => test?.serviceName || 'Unknown Test').join(', ');
+                      console.log('📝 Multiple test names:', testNames);
+                      return testNames.length > 40 
+                        ? `${selectedTests.length} tests selected`
+                        : testNames;
+                    }
+                  })()}
                 </ThemedText>
                 <Ionicons name="chevron-down" size={20} color="#1A202C" />
               </TouchableOpacity>
@@ -500,8 +621,12 @@ export default function AppointmentsScreen() {
                   <ThemedText style={styles.previewTitle}>Selected Tests:</ThemedText>
                   {selectedTests.map(test => (
                     <View key={test._id} style={styles.testPreviewItem}>
-                      <ThemedText style={styles.testPreviewName}>{test.serviceName}</ThemedText>
-                      <ThemedText style={styles.testPreviewPrice}>₱{test.price.toFixed(2)}</ThemedText>
+                      <ThemedText style={styles.testPreviewName}>
+                        {test.serviceName || 'Unknown Test'}
+                      </ThemedText>
+                      <ThemedText style={styles.testPreviewPrice}>
+                        ₱{(test.price || 0).toFixed(2)}
+                      </ThemedText>
                     </View>
                   ))}
                   <View style={styles.totalPricePreview}>
@@ -563,13 +688,11 @@ export default function AppointmentsScreen() {
         </View>
       </Modal>
 
-      {/* Test Selection Modal */}
-      <TestSelectionModal
-        isVisible={isTestSelectionVisible}
+      {/* Lab Test Selection Modal */}
+      <LabTestModal
+        visible={isTestSelectionVisible}
         onClose={() => setIsTestSelectionVisible(false)}
         onConfirm={handleTestSelection}
-        availableServices={availableServices}
-        isLoading={isLoadingServices}
       />
 
       {/* Reschedule Modal */}

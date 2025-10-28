@@ -1,13 +1,14 @@
 import { ThemedText } from '@/components/themed-text';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { authAPI } from '../services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth(); // ✅ USE AUTH CONTEXT LIKE WEB
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,30 +25,16 @@ export default function LoginScreen() {
     setIsLoading(true);
     
     try {
-      const response = await authAPI.login({
-        identifier: username.trim(),
-        password: password
-      });
+      // ✅ USE AUTH CONTEXT LOGIN - THIS STORES USER STATE PROPERLY
+      const response = await login(username.trim(), password);
 
-      if (response.success && response.data?.user) {
-        console.log('✅ Login successful:', response.data.user);
-        
-        // Check if user is a patient
-        if (response.data.user.role !== 'patient') {
-          Alert.alert(
-            'Access Denied', 
-            'This app is only for patients. Please use the web portal for staff access.',
-            [{ text: 'OK' }]
-          );
-          await authAPI.logout(); // Clear any stored credentials
-          setIsLoading(false);
-          return;
-        }
-
-        // Navigate to dashboard
+      if (response.success) {
+        console.log('✅ Login successful, navigating to dashboard');
+        // Navigate to dashboard - AuthContext already updated
         router.replace('/(drawer)/dashboard');
       } else {
         Alert.alert('Login Failed', response.message || 'Invalid username or password');
+        setIsLoading(false);
       }
     } catch (error: any) {
       console.error('❌ Login error:', error);
@@ -55,7 +42,6 @@ export default function LoginScreen() {
         'Connection Error', 
         'Unable to connect to the server. Please check your internet connection and try again.'
       );
-    } finally {
       setIsLoading(false);
     }
   };
